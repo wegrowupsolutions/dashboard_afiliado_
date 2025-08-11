@@ -353,7 +353,7 @@ const Evolution = () => {
       <main className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-2xl font-bold flex items-center gap-2 text-gray-800 dark:text-white">
-            <Link className="h-6 w-6 text-blue-500 dark:text-blue-400" />
+            <Link className="h-6 w-6 text-green-500 dark:text-green-400" />
             Conectar Evolution
           </h2>
         </div>

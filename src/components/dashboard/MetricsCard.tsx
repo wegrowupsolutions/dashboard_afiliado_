@@ -23,37 +23,48 @@ const MetricsCard = () => {
       className="cursor-pointer transform transition-all duration-300 hover:scale-105 hover:shadow-xl dark:bg-gray-800 dark:border-gray-700 dark:text-white"
       onClick={handleClick}
     >
-      <CardHeader className="pb-2 bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-700 dark:to-blue-800 text-white rounded-t-lg">
+      <CardHeader
+        className="pb-2 text-white rounded-t-lg"
+        style={{ background: "linear-gradient(to right, #1D44BA, #1A3FA3)" }}
+      >
         <CardTitle className="flex items-center gap-2">
           <LineChart className="h-6 w-6" />
           Métricas
         </CardTitle>
-        <CardDescription className="text-blue-100">
+        <CardDescription style={{ color: "rgba(255, 255, 255, 0.8)" }}>
           Estatísticas e indicadores
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-6">
         <div className="mb-4 flex justify-center">
-          <div className="bg-blue-100 dark:bg-blue-900/30 p-6 rounded-full relative">
-            <LineChart className="h-14 w-14 text-blue-500 dark:text-blue-400" />
-            <div className="absolute -top-2 -right-2 bg-purple-600 text-white text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center">
+          <div
+            className="p-6 rounded-full relative"
+            style={{ backgroundColor: "rgba(29, 68, 186, 0.1)" }}
+          >
+            <LineChart className="h-14 w-14" style={{ color: "#1D44BA" }} />
+            <div
+              className="absolute -top-2 -right-2 text-white text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center"
+              style={{ backgroundColor: "#1D44BA" }}
+            >
               110
             </div>
           </div>
         </div>
-        <div className="space-y-3">
-          <div className="flex items-center justify-center">
-            <LineChart className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-1" />
-            <span className="text-sm text-gray-600 dark:text-gray-300">
-              Análise de indicadores disponível
-            </span>
-          </div>
-        </div>
+        <p className="text-gray-600 dark:text-gray-300 text-center">
+          Análise de indicadores e métricas disponíveis.
+        </p>
       </CardContent>
       <CardFooter className="bg-gray-50 dark:bg-gray-700/50 rounded-b-lg border-t dark:border-gray-700 flex justify-center py-3">
         <Badge
           variant="outline"
-          className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-800/50"
+          style={{
+            backgroundColor: "rgba(125, 211, 252, 0.25)",
+            color: "#7DD3FC",
+            border: "1px solid rgba(125, 211, 252, 0.7)",
+            fontWeight: "700",
+            textShadow: "0 0 12px rgba(125, 211, 252, 0.4)",
+          }}
+          className="hover:opacity-80"
         >
           Acessar dashboard de métricas
         </Badge>

@@ -23,19 +23,25 @@ const ClientsCard = () => {
       className="cursor-pointer transform transition-all duration-300 hover:scale-105 hover:shadow-xl dark:bg-gray-800 dark:border-gray-700 dark:text-white"
       onClick={handleClick}
     >
-      <CardHeader className="pb-2 bg-gradient-to-r from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700 text-white rounded-t-lg">
+      <CardHeader
+        className="pb-2 text-white rounded-t-lg"
+        style={{ background: "linear-gradient(to right, #8427D7, #7621C2)" }}
+      >
         <CardTitle className="flex items-center gap-2">
           <Users className="h-6 w-6" />
           Leads
         </CardTitle>
-        <CardDescription className="text-purple-100">
+        <CardDescription style={{ color: "rgba(255, 255, 255, 0.8)" }}>
           CRM e gerenciamento
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-6">
         <div className="mb-4 flex justify-center">
-          <div className="bg-purple-100 dark:bg-purple-900/30 p-6 rounded-full">
-            <Users className="h-14 w-14 text-purple-500 dark:text-purple-400" />
+          <div
+            className="p-6 rounded-full"
+            style={{ backgroundColor: "rgba(132, 39, 215, 0.1)" }}
+          >
+            <Users className="h-14 w-14" style={{ color: "#8427D7" }} />
           </div>
         </div>
         <p className="text-gray-600 dark:text-gray-300 text-center">
@@ -45,9 +51,16 @@ const ClientsCard = () => {
       <CardFooter className="bg-gray-50 dark:bg-gray-700/50 rounded-b-lg border-t dark:border-gray-700 flex justify-center py-3">
         <Badge
           variant="outline"
-          className="bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-800/50"
+          style={{
+            backgroundColor: "rgba(196, 144, 255, 0.25)",
+            color: "#C490FF",
+            border: "1px solid rgba(196, 144, 255, 0.7)",
+            fontWeight: "700",
+            textShadow: "0 0 12px rgba(196, 144, 255, 0.4)",
+          }}
+          className="hover:opacity-80"
         >
-          Acessar CRM de clientes
+          Acessar CRM de Leads
         </Badge>
       </CardFooter>
     </Card>

@@ -86,7 +86,7 @@ const MetricsDashboard = () => {
       <main className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-2xl font-bold flex items-center gap-2 text-gray-800 dark:text-white">
-            <LineChart className="h-6 w-6 text-petshop-blue dark:text-blue-400" />
+            <LineChart className="h-6 w-6 text-green-500 dark:text-green-400" />
             Dashboard de Métricas
           </h2>
         </div>

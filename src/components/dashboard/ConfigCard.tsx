@@ -9,13 +9,13 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MessageSquare } from "lucide-react"
+import { Settings } from "lucide-react"
 
-const ChatsCard = () => {
+const ConfigCard = () => {
   const navigate = useNavigate()
 
   const handleClick = () => {
-    navigate("/chats")
+    navigate("/config")
   }
 
   return (
@@ -25,46 +25,46 @@ const ChatsCard = () => {
     >
       <CardHeader
         className="pb-2 text-white rounded-t-lg"
-        style={{ background: "linear-gradient(to right, #118EBF, #0E7BA3)" }}
+        style={{ background: "linear-gradient(to right, #F59E0B, #D97706)" }}
       >
         <CardTitle className="flex items-center gap-2">
-          <MessageSquare className="h-6 w-6" />
-          Chats
+          <Settings className="h-6 w-6" />
+          Configuração
         </CardTitle>
         <CardDescription style={{ color: "rgba(255, 255, 255, 0.8)" }}>
-          Conversas em tempo real
+          Configurações do sistema
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-6">
         <div className="mb-4 flex justify-center">
           <div
             className="p-6 rounded-full"
-            style={{ backgroundColor: "rgba(17, 142, 191, 0.1)" }}
+            style={{ backgroundColor: "rgba(245, 158, 11, 0.1)" }}
           >
-            <MessageSquare className="h-14 w-14" style={{ color: "#118EBF" }} />
+            <Settings className="h-14 w-14" style={{ color: "#F59E0B" }} />
           </div>
         </div>
         <p className="text-gray-600 dark:text-gray-300 text-center">
-          Visualize e responda mensagens de WhatsApp em tempo real.
+          Gerencie configurações gerais e preferências do sistema.
         </p>
       </CardContent>
       <CardFooter className="bg-gray-50 dark:bg-gray-700/50 rounded-b-lg border-t dark:border-gray-700 flex justify-center py-3">
         <Badge
           variant="outline"
-                     style={{
-             backgroundColor: "rgba(56, 189, 248, 0.25)",
-             color: "#38BDF8",
-             border: "1px solid rgba(56, 189, 248, 0.7)",
-             fontWeight: "700",
-             textShadow: "0 0 12px rgba(56, 189, 248, 0.4)",
-           }}
+          style={{
+            backgroundColor: "rgba(251, 191, 36, 0.25)",
+            color: "#FBBF24",
+            border: "1px solid rgba(251, 191, 36, 0.7)",
+            fontWeight: "700",
+            textShadow: "0 0 12px rgba(251, 191, 36, 0.4)",
+          }}
           className="hover:opacity-80"
         >
-          Acessar conversas
+          Acessar configurações
         </Badge>
       </CardFooter>
     </Card>
   )
 }
 
-export default ChatsCard
+export default ConfigCard

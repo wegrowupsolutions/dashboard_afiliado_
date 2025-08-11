@@ -8,6 +8,7 @@ import ChatsCard from "@/components/dashboard/ChatsCard"
 import KnowledgeCard from "@/components/dashboard/KnowledgeCard"
 import ClientsCard from "@/components/dashboard/ClientsCard"
 import EvolutionCard from "@/components/dashboard/EvolutionCard"
+import ConfigCard from "@/components/dashboard/ConfigCard"
 
 const Dashboard = () => {
   const { user, isLoading } = useAuth()
@@ -40,11 +41,12 @@ const Dashboard = () => {
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+          <EvolutionCard />
+          <ConfigCard />
+          <KnowledgeCard />
           <MetricsCard />
           <ChatsCard />
-          <KnowledgeCard />
           <ClientsCard />
-          <EvolutionCard />
         </div>
       </main>
     </div>

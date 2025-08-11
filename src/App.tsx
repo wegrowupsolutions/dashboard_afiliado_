@@ -10,6 +10,7 @@ import ChatsDashboard from "./pages/ChatsDashboard"
 import KnowledgeManager from "./pages/KnowledgeManager"
 import ClientsDashboard from "./pages/ClientsDashboard"
 import Evolution from "./pages/Evolution"
+import Config from "./pages/Config"
 
 import NotFound from "./pages/NotFound"
 import { AuthProvider } from "./context/AuthContext"
@@ -33,6 +34,7 @@ const App = () => (
               <Route path="/knowledge" element={<KnowledgeManager />} />
               <Route path="/clients" element={<ClientsDashboard />} />
               <Route path="/evolution" element={<Evolution />} />
+              <Route path="/config" element={<Config />} />
 
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
