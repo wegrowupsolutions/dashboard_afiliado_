@@ -1,9 +1,11 @@
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { useAuth } from "@/context/AuthContext"
+import { useAuth } from "@/hooks/useAuth"
+import { supabase } from "@/integrations/supabase/client"
 import { Button } from "@/components/ui/button"
 import {
   ArrowLeft,
+  ArrowUpRight,
   Bot,
   LogOut,
   MessageSquare,
@@ -18,6 +20,7 @@ import {
   ChevronUp,
   Plus,
   Trash2,
+  AlertTriangle,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { ThemeToggle } from "@/components/ThemeToggle"
@@ -36,12 +39,45 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 const Config = () => {
   const { user, signOut, isLoading: authLoading } = useAuth()
   const navigate = useNavigate()
+
+  // Mock hooks since they don't exist yet - we'll create simple state management
+  const [formData, setFormData] = useState({
+    specificScenario: "",
+    problemToSolve: "",
+    expectedResult: "",
+    targetAudience: "",
+    environment: "",
+    toneOfVoice: "",
+    languageLevel: "",
+    personalityCharacteristics: "",
+    specificKnowledge: "",
+    importantPolicies: "",
+    actionLimits: "",
+    legalEthicalRestrictions: "",
+    mandatoryProcedures: "",
+    confidentialInformation: "",
+    conversationStepByStep: "",
+    frequentQuestions: "",
+    practicalExamples: "",
+    qualityIndicators: "",
+    performanceMetrics: "",
+    evaluationCriteria: "",
+    promotionLinks: [{ url: "", isPrimary: true }],
+  })
+
   const [expandedSections, setExpandedSections] = useState({
-    context: true,
+    context: false,
     personality: false,
     directives: false,
     structure: false,
@@ -51,47 +87,10 @@ const Config = () => {
     links: false,
   })
 
-  const [formData, setFormData] = useState({
-    specificScenario: "",
-    problemToSolve: "",
-    expectedResult: "",
-    targetAudience: "",
-    environment: "",
-    // Personality fields
-    toneOfVoice: "",
-    languageLevel: "",
-    personalityCharacteristics: "",
-    specificKnowledge: "",
-    // Directives fields
-    importantPolicies: "",
-    actionLimits: "",
-    legalEthicalRestrictions: "",
-    mandatoryProcedures: "",
-    confidentialInformation: "",
-    // Structure fields
-    conversationStepByStep: "",
-    // FAQ fields
-    frequentQuestions: "",
-    // Examples fields
-    practicalExamples: "",
-    // Metrics fields
-    qualityIndicators: "",
-    performanceMetrics: "",
-    evaluationCriteria: "",
-    // Links fields
-    promotionLinks: [{ url: "", description: "", isPrimary: true }],
-  })
-
-  const handleBackToDashboard = () => {
-    navigate("/dashboard")
-  }
-
-  const toggleSection = (section: string) => {
-    setExpandedSections((prev) => ({
-      ...prev,
-      [section]: !prev[section],
-    }))
-  }
+  const [isSaving, setIsSaving] = useState(false)
+  const [showLimitModal, setShowLimitModal] = useState(false)
+  const [showValidationModal, setShowValidationModal] = useState(false)
+  const [missingField, setMissingField] = useState("")
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({
@@ -100,13 +99,132 @@ const Config = () => {
     }))
   }
 
+  const toggleSection = (section: keyof typeof expandedSections) => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }))
+  }
+
+  const calculateProgress = () => {
+    const totalFields = 21
+    const filledFields = Object.values(formData).filter((value) => {
+      if (Array.isArray(value)) {
+        return (
+          value.length > 0 &&
+          value.some((item) =>
+            typeof item === "object"
+              ? Object.values(item).some((v) => v !== "")
+              : item !== ""
+          )
+        )
+      }
+      return value.toString().trim() !== ""
+    }).length
+
+    return Math.round((filledFields / totalFields) * 100)
+  }
+
+  const getCompletedFieldsCount = () => {
+    return Object.values(formData).filter((value) => {
+      if (Array.isArray(value)) {
+        return (
+          value.length > 0 &&
+          value.some((item) =>
+            typeof item === "object"
+              ? Object.values(item).some((v) => v !== "")
+              : item !== ""
+          )
+        )
+      }
+      return value.toString().trim() !== ""
+    }).length
+  }
+
+  const handleBackToDashboard = () => {
+    navigate("/dashboard")
+  }
+
+  // Check if user already has a saved prompt
+  const checkExistingPrompt = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("cliente_config")
+        .select("id")
+        .eq("cliente_id", user?.id)
+        .single()
+
+      if (error && error.code !== "PGRST116") {
+        // PGRST116 is "no rows returned" - which is expected for new users
+        console.error("Error checking existing prompt:", error)
+        return false
+      }
+
+      return !!data // Returns true if data exists, false if not
+    } catch (error) {
+      console.error("Error checking existing prompt:", error)
+      return false
+    }
+  }
+
+  // Validate all required fields
+  const validateRequiredFields = () => {
+    const fieldLabels = {
+      specificScenario: "Cenário Específico",
+      problemToSolve: "Problema a Resolver",
+      expectedResult: "Resultado Esperado",
+      targetAudience: "Público-alvo",
+      environment: "Ambiente",
+      toneOfVoice: "Tom de Voz",
+      languageLevel: "Nível de Linguagem",
+      personalityCharacteristics: "Características da Personalidade",
+      specificKnowledge: "Conhecimento Específico",
+      importantPolicies: "Políticas Importantes",
+      actionLimits: "Limites de Ação",
+      legalEthicalRestrictions: "Restrições Legais e Éticas",
+      mandatoryProcedures: "Procedimentos Obrigatórios",
+      confidentialInformation: "Informações Confidenciais",
+      conversationStepByStep: "Estrutura da Conversa",
+      frequentQuestions: "Perguntas Frequentes",
+      practicalExamples: "Exemplos Práticos",
+      qualityIndicators: "Indicadores de Qualidade",
+      performanceMetrics: "Métricas de Performance",
+      evaluationCriteria: "Critérios de Avaliação",
+    }
+
+    // Check each required field
+    for (const [key, label] of Object.entries(fieldLabels)) {
+      const value = formData[key as keyof typeof formData]
+
+      if (typeof value === "string" && value.trim() === "") {
+        return { isValid: false, missingField: label }
+      }
+    }
+
+    // Check promotion links (at least one with URL and description)
+    if (!formData.promotionLinks || formData.promotionLinks.length === 0) {
+      return { isValid: false, missingField: "Links de Promoção" }
+    }
+
+    const hasValidLink = formData.promotionLinks.some(
+      (link) => link.url && link.url.trim() !== ""
+    )
+
+    if (!hasValidLink) {
+      return {
+        isValid: false,
+        missingField: "Links de Promoção (URL)",
+      }
+    }
+
+    return { isValid: true, missingField: "" }
+  }
+
+  // Link management functions
   const addNewLink = () => {
     setFormData((prev) => ({
       ...prev,
-      promotionLinks: [
-        ...prev.promotionLinks,
-        { url: "", description: "", isPrimary: false },
-      ],
+      promotionLinks: [...prev.promotionLinks, { url: "", isPrimary: false }],
     }))
   }
 
@@ -130,48 +248,184 @@ const Config = () => {
     }))
   }
 
-  const calculateProgress = () => {
-    const totalFields = 21 // Total de campos incluindo links
-    let filledFields = 0
+  // Function to convert formData to structured prompt
+  const convertToPrompt = (data: typeof formData) => {
+    return `# Prompt de Agente SDR com Técnica COT (Chain of Thought)
 
-    // Contar campos de texto preenchidos
-    Object.entries(formData).forEach(([key, value]) => {
-      if (key === "promotionLinks") {
-        // Para links, considerar preenchido se pelo menos o primeiro link tem URL
-        if (
-          Array.isArray(value) &&
-          value.length > 0 &&
-          value[0].url.trim() !== ""
-        ) {
-          filledFields += 1
-        }
-      } else if (typeof value === "string" && value.trim() !== "") {
-        filledFields += 1
-      }
-    })
+## Contexto
+${data.specificScenario || "Descreva o cenário específico aqui"}
 
-    return Math.round((filledFields / totalFields) * 100)
+Problema a resolver: ${data.problemToSolve || "Descreva o problema aqui"}
+Resultado esperado: ${
+      data.expectedResult || "Descreva o resultado esperado aqui"
+    }
+Público-alvo: ${data.targetAudience || "Descreva o público-alvo aqui"}
+Ambiente: ${data.environment || "Descreva o ambiente aqui"}
+
+## Personalidade
+- Tom de voz: ${data.toneOfVoice || "Defina o tom de voz aqui"}
+- Nível de linguagem: ${
+      data.languageLevel || "Defina o nível de linguagem aqui"
+    }
+- Características da personalidade: ${
+      data.personalityCharacteristics || "Descreva as características aqui"
+    }
+
+## Diretrizes
+${
+  data.specificKnowledge
+    ? `### Conhecimento Específico
+${data.specificKnowledge}`
+    : ""
+}
+
+${
+  data.importantPolicies
+    ? `### Políticas Importantes
+${data.importantPolicies}`
+    : ""
+}
+
+${
+  data.actionLimits
+    ? `### Limites de Ação
+${data.actionLimits}`
+    : ""
+}
+
+${
+  data.legalEthicalRestrictions
+    ? `### Restrições Legais e Éticas
+${data.legalEthicalRestrictions}`
+    : ""
+}
+
+${
+  data.mandatoryProcedures
+    ? `### Procedimentos Obrigatórios
+${data.mandatoryProcedures}`
+    : ""
+}
+
+## Estrutura da Conversa
+${data.conversationStepByStep || "Defina a estrutura da conversa aqui"}
+
+## FAQ - Perguntas Frequentes
+${data.frequentQuestions || "Adicione perguntas frequentes aqui"}
+
+## Exemplos de Uso
+${data.practicalExamples || "Adicione exemplos de uso aqui"}
+
+## Métricas de Sucesso
+${data.qualityIndicators || "Defina indicadores de qualidade aqui"}
+
+${
+  data.performanceMetrics
+    ? `### Métricas de Performance
+${data.performanceMetrics}`
+    : ""
+}
+
+${
+  data.evaluationCriteria
+    ? `### Critérios de Avaliação
+${data.evaluationCriteria}`
+    : ""
+}
+
+## Links de Promoção
+${
+  data.promotionLinks &&
+  Array.isArray(data.promotionLinks) &&
+  data.promotionLinks.length > 0
+    ? data.promotionLinks
+        .filter((link) => link && typeof link === "object")
+        .map(
+          (link, index) => `
+### ${index + 1}. Link ${index + 1}
+**URL:** ${(link && link.url) || "URL não definida"}
+**Tipo:** ${link && link.isPrimary ? "Principal" : "Secundário"}
+`
+        )
+        .join("")
+    : "Adicione links promocionais aqui"
+}
+
+---
+*Prompt gerado automaticamente pelo sistema Afiliado AI*
+*Data de criação: ${new Date().toLocaleString("pt-BR")}*`
   }
 
-  const getCompletedFieldsCount = () => {
-    let filledFields = 0
-
-    Object.entries(formData).forEach(([key, value]) => {
-      if (key === "promotionLinks") {
-        // Para links, considerar preenchido se pelo menos o primeiro link tem URL
-        if (
-          Array.isArray(value) &&
-          value.length > 0 &&
-          value[0].url.trim() !== ""
-        ) {
-          filledFields += 1
-        }
-      } else if (typeof value === "string" && value.trim() !== "") {
-        filledFields += 1
+  // Save configuration handler
+  const handleSaveConfig = async () => {
+    setIsSaving(true)
+    try {
+      // Validate all required fields first
+      const validation = validateRequiredFields()
+      if (!validation.isValid) {
+        setMissingField(validation.missingField)
+        setShowValidationModal(true)
+        setIsSaving(false)
+        return
       }
-    })
 
-    return filledFields
+      // Check if user already has a prompt saved
+      const hasExistingPrompt = await checkExistingPrompt()
+
+      if (hasExistingPrompt) {
+        setShowLimitModal(true)
+        setIsSaving(false)
+        return
+      }
+
+      // Convert formData to structured prompt format
+      const promptString = convertToPrompt(formData)
+
+      // Save to cliente_config table in prompt field
+      const { error } = await supabase.from("cliente_config").upsert({
+        cliente_id: user?.id,
+        prompt: promptString,
+      })
+
+      if (error) {
+        throw error
+      }
+
+      console.log("Configuration saved successfully")
+      // Show success message
+    } catch (error) {
+      console.error("Error saving configuration:", error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Cancel handler
+  const handleCancel = () => {
+    // Reset to empty form
+    setFormData({
+      specificScenario: "",
+      problemToSolve: "",
+      expectedResult: "",
+      targetAudience: "",
+      environment: "",
+      toneOfVoice: "",
+      languageLevel: "",
+      personalityCharacteristics: "",
+      specificKnowledge: "",
+      importantPolicies: "",
+      actionLimits: "",
+      legalEthicalRestrictions: "",
+      mandatoryProcedures: "",
+      confidentialInformation: "",
+      conversationStepByStep: "",
+      frequentQuestions: "",
+      practicalExamples: "",
+      qualityIndicators: "",
+      performanceMetrics: "",
+      evaluationCriteria: "",
+      promotionLinks: [{ url: "", isPrimary: true }],
+    })
   }
 
   if (authLoading) {
@@ -505,8 +759,12 @@ const Config = () => {
         ].map((section) => (
           <Collapsible
             key={section.key}
-            open={expandedSections[section.key]}
-            onOpenChange={() => toggleSection(section.key)}
+            open={
+              expandedSections[section.key as keyof typeof expandedSections]
+            }
+            onOpenChange={() =>
+              toggleSection(section.key as keyof typeof expandedSections)
+            }
           >
             <Card className="mb-4 bg-slate-800 border-slate-700">
               <CollapsibleTrigger asChild>
@@ -1182,24 +1440,6 @@ AÇÕES CORRETIVAS:
                                   </p>
                                 )}
                               </div>
-
-                              <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-2">
-                                  Descrição
-                                </label>
-                                <Input
-                                  placeholder="Descrição do link"
-                                  value={link.description}
-                                  onChange={(e) =>
-                                    updateLink(
-                                      index,
-                                      "description",
-                                      e.target.value
-                                    )
-                                  }
-                                  className="bg-slate-800 border-slate-600 text-white placeholder:text-slate-400"
-                                />
-                              </div>
                             </div>
                           </div>
                         ))}
@@ -1232,15 +1472,105 @@ AÇÕES CORRETIVAS:
             Faça alterações para salvar automaticamente
           </p>
           <div className="flex gap-3">
-            <Button className="bg-red-600 hover:bg-red-700 text-white">
+            <Button
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={handleCancel}
+              disabled={isSaving}
+            >
               Cancelar
             </Button>
-            <Button className="bg-green-600 hover:bg-green-700 text-white">
-              Salvar Configuração
+            <Button
+              className="bg-green-600 hover:bg-green-700 text-white"
+              onClick={handleSaveConfig}
+              disabled={isSaving}
+            >
+              {isSaving ? "Salvando..." : "Salvar Configuração"}
             </Button>
           </div>
         </div>
       </main>
+
+      {/* Limit Modal */}
+      <Dialog open={showLimitModal} onOpenChange={setShowLimitModal}>
+        <DialogContent className="sm:max-w-md bg-slate-800 border-slate-700">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Bot className="h-5 w-5 text-red-500" />
+              Limite de Agente Atingido
+            </DialogTitle>
+            <DialogDescription className="text-slate-300">
+              Você já possui um agente criado em sua conta.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4 py-4">
+            <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4">
+              <p className="text-red-200 text-sm">
+                <strong>Limite atingido:</strong> Cada usuário pode criar apenas
+                um prompt de agente.
+              </p>
+            </div>
+
+            <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
+              <p className="text-blue-200 text-sm">
+                <strong>Dica:</strong> Para modificar seu agente existente,
+                edite as configurações e salve novamente.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <Button
+              onClick={() => setShowLimitModal(false)}
+              className="bg-green-600 hover:bg-green-700 text-white border border-green-400"
+            >
+              Entendi
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Validation Modal */}
+      <Dialog open={showValidationModal} onOpenChange={setShowValidationModal}>
+        <DialogContent className="sm:max-w-md bg-slate-800 border-slate-700">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              Campo Obrigatório
+            </DialogTitle>
+            <DialogDescription className="text-slate-300">
+              Um campo obrigatório precisa ser preenchido.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4 py-4">
+            <div className="bg-yellow-900/30 border border-yellow-500/50 rounded-lg p-4">
+              <p className="text-yellow-100 text-sm">
+                <strong>Campo obrigatório:</strong> {missingField}
+              </p>
+              <p className="text-yellow-200 text-xs mt-2">
+                Por favor, preencha este campo antes de salvar sua configuração.
+              </p>
+            </div>
+
+            <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4">
+              <p className="text-red-200 text-sm">
+                <strong>Dica:</strong> Todos os campos são obrigatórios para
+                garantir que seu agente funcione adequadamente.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <Button
+              onClick={() => setShowValidationModal(false)}
+              className="bg-green-600 hover:bg-green-700 text-white border border-green-400"
+            >
+              Entendi
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

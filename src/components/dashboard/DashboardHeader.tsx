@@ -1,5 +1,5 @@
 import React from "react"
-import { useAuth } from "@/context/AuthContext"
+import { useAuth } from "@/hooks/useAuth"
 import { Button } from "@/components/ui/button"
 import { LogOut, Bot } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -20,7 +20,7 @@ const DashboardHeader = () => {
             variant="outline"
             className="bg-white/10 text-white border-0 px-3 py-1"
           >
-            Bem-vindo, {user?.user_metadata?.name}
+            Bem-vindo, {user?.user_metadata?.name || user?.email}
           </Badge>
           <ThemeToggle />
           <Button

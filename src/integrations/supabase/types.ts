@@ -9,6 +9,44 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      cliente_config: {
+        Row: {
+          id: string
+          cliente_id: string
+          prompt: string | null
+          evo_instance: string | null
+          nome_tabela_leads: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          cliente_id: string
+          prompt?: string | null
+          evo_instance?: string | null
+          nome_tabela_leads?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          cliente_id?: string
+          prompt?: string | null
+          evo_instance?: string | null
+          nome_tabela_leads?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cliente_config_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       chat_messages: {
         Row: {
           active: boolean | null
@@ -83,6 +121,7 @@ export type Database = {
           payments: Json | null
           sessionid: string | null
           telefone: string | null
+          auth_user_id: string | null
         }
         Insert: {
           asaas_customer_id?: string | null
@@ -94,6 +133,7 @@ export type Database = {
           payments?: Json | null
           sessionid?: string | null
           telefone?: string | null
+          auth_user_id?: string | null
         }
         Update: {
           asaas_customer_id?: string | null
@@ -105,8 +145,17 @@ export type Database = {
           payments?: Json | null
           sessionid?: string | null
           telefone?: string | null
+          auth_user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "dados_cliente_auth_user_id_fkey"
+            columns: ["auth_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       documents: {
         Row: {
@@ -168,6 +217,104 @@ export type Database = {
           id?: number
           number?: string | null
           status?: string | null
+        }
+        Relationships: []
+      }
+      user_files: {
+        Row: {
+          id: string
+          user_id: string
+          filename: string
+          original_filename: string
+          file_path: string
+          file_size: number
+          mime_type: string
+          storage_bucket: string
+          uploaded_at: string
+          updated_at: string
+          is_processed: boolean | null
+          processing_status: string | null
+          content_preview: string | null
+          tags: string[] | null
+          metadata: Json | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          filename: string
+          original_filename: string
+          file_path: string
+          file_size: number
+          mime_type: string
+          storage_bucket: string
+          uploaded_at?: string
+          updated_at?: string
+          is_processed?: boolean | null
+          processing_status?: string | null
+          content_preview?: string | null
+          tags?: string[] | null
+          metadata?: Json | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          filename?: string
+          original_filename?: string
+          file_path?: string
+          file_size?: number
+          mime_type?: string
+          storage_bucket?: string
+          uploaded_at?: string
+          updated_at?: string
+          is_processed?: boolean | null
+          processing_status?: string | null
+          content_preview?: string | null
+          tags?: string[] | null
+          metadata?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_files_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      users: {
+        Row: {
+          id: string
+          email: string
+          password_hash: string
+          name: string
+          role: string
+          avatar_url: string | null
+          created_at: string
+          updated_at: string
+          last_login: string | null
+        }
+        Insert: {
+          id?: string
+          email: string
+          password_hash: string
+          name: string
+          role?: string
+          avatar_url?: string | null
+          created_at?: string
+          updated_at?: string
+          last_login?: string | null
+        }
+        Update: {
+          id?: string
+          email?: string
+          password_hash?: string
+          name?: string
+          role?: string
+          avatar_url?: string | null
+          created_at?: string
+          updated_at?: string
+          last_login?: string | null
         }
         Relationships: []
       }
@@ -380,7 +527,7 @@ export type Tables<
   TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
     ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
         Database[PublicTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never = never
 > = PublicTableNameOrOptions extends { schema: keyof Database }
   ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
       Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
@@ -389,14 +536,14 @@ export type Tables<
     ? R
     : never
   : PublicTableNameOrOptions extends keyof (PublicSchema["Tables"] &
-        PublicSchema["Views"])
-    ? (PublicSchema["Tables"] &
-        PublicSchema["Views"])[PublicTableNameOrOptions] extends {
-        Row: infer R
-      }
-      ? R
-      : never
+      PublicSchema["Views"])
+  ? (PublicSchema["Tables"] &
+      PublicSchema["Views"])[PublicTableNameOrOptions] extends {
+      Row: infer R
+    }
+    ? R
     : never
+  : never
 
 export type TablesInsert<
   PublicTableNameOrOptions extends
@@ -404,7 +551,7 @@ export type TablesInsert<
     | { schema: keyof Database },
   TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
     ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never = never
 > = PublicTableNameOrOptions extends { schema: keyof Database }
   ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
@@ -412,12 +559,12 @@ export type TablesInsert<
     ? I
     : never
   : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
-        Insert: infer I
-      }
-      ? I
-      : never
+  ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+      Insert: infer I
+    }
+    ? I
     : never
+  : never
 
 export type TablesUpdate<
   PublicTableNameOrOptions extends
@@ -425,7 +572,7 @@ export type TablesUpdate<
     | { schema: keyof Database },
   TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
     ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never = never
 > = PublicTableNameOrOptions extends { schema: keyof Database }
   ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
@@ -433,12 +580,12 @@ export type TablesUpdate<
     ? U
     : never
   : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
-        Update: infer U
-      }
-      ? U
-      : never
+  ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+      Update: infer U
+    }
+    ? U
     : never
+  : never
 
 export type Enums<
   PublicEnumNameOrOptions extends
@@ -446,12 +593,12 @@ export type Enums<
     | { schema: keyof Database },
   EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
     ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never = never
 > = PublicEnumNameOrOptions extends { schema: keyof Database }
   ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
-    ? PublicSchema["Enums"][PublicEnumNameOrOptions]
-    : never
+  ? PublicSchema["Enums"][PublicEnumNameOrOptions]
+  : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
@@ -461,9 +608,9 @@ export type CompositeTypes<
     schema: keyof Database
   }
     ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never = never
 > = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
   ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
-    ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
+  ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+  : never

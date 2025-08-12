@@ -1,3 +1,20 @@
+// 🚀 PONTO DE RESTAURAÇÃO PERFEITO - INDEX LOGIN
+// Data: $(date)
+// Status: APROVADO PELO USUÁRIO
+// Descrição: Layout perfeito com proporções ideais para tela de login
+//
+// Características:
+// ✅ Container: max-w-lg (tamanho ideal)
+// ✅ Padding: px-8 py-8 (espaçamento equilibrado)
+// ✅ Campos: h-12, text-base (altura e texto proporcionais)
+// ✅ Ícones: h-5 w-5 (tamanho adequado)
+// ✅ Botão: py-3 px-4, text-base (proporção perfeita)
+// ✅ Seção lembrar/esqueceu: text-sm, espaçamento ajustado
+// ✅ Header: Bot h-12 w-12, título text-3xl
+// ✅ Layout responsivo e bem dimensionado
+//
+// Para restaurar: copie o conteúdo abaixo para src/pages/Index.tsx
+
 import React, { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
@@ -16,7 +33,7 @@ import {
   Binary,
 } from "lucide-react"
 import { z } from "zod"
-import { useAuth } from "@/context/AuthContext"
+import { useAuth } from "@/hooks/useAuth"
 import { ThemeToggle } from "@/components/ThemeToggle"
 
 const loginSchema = z.object({

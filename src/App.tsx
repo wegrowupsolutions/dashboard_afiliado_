@@ -11,16 +11,15 @@ import KnowledgeManager from "./pages/KnowledgeManager"
 import ClientsDashboard from "./pages/ClientsDashboard"
 import Evolution from "./pages/Evolution"
 import Config from "./pages/Config"
-
 import NotFound from "./pages/NotFound"
-import { AuthProvider } from "./context/AuthContext"
+import { AuthProvider } from "./context/AuthProvider"
 import { ThemeProvider } from "./context/ThemeContext"
 
 const queryClient = new QueryClient()
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ThemeProvider defaultTheme="light">
+    <ThemeProvider defaultTheme="dark">
       <TooltipProvider>
         <Toaster />
         <Sonner />

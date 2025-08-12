@@ -14,11 +14,19 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { useAuth } from "@/context/AuthContext"
+import { useAuth } from "@/hooks/useAuth"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
+import { supabase } from "@/integrations/supabase/client"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 const Evolution = () => {
   const navigate = useNavigate()
@@ -30,6 +38,8 @@ const Evolution = () => {
   const [confirmationStatus, setConfirmationStatus] = useState<
     "waiting" | "confirmed" | "failed" | null
   >(null)
+  const [showLimitModal, setShowLimitModal] = useState(false)
+  const [hasCreatedInstance, setHasCreatedInstance] = useState(false)
   const statusCheckIntervalRef = useRef<number | null>(null)
   const retryCountRef = useRef<number>(0)
   const maxRetries = 3
@@ -41,6 +51,17 @@ const Evolution = () => {
       }
     }
   }, [])
+
+  // Check for existing instances when component loads
+  useEffect(() => {
+    const checkOnLoad = async () => {
+      if (user?.id) {
+        const hasInstance = await checkExistingInstance()
+        setHasCreatedInstance(hasInstance)
+      }
+    }
+    checkOnLoad()
+  }, [user?.id])
 
   const checkConnectionStatus = async () => {
     try {
@@ -225,6 +246,40 @@ const Evolution = () => {
     }
   }
 
+  // Check if user already has an instance saved
+  const checkExistingInstance = async () => {
+    try {
+      console.log("Checking for existing instance for user:", user?.id)
+
+      // Check if user has an instance name saved in evo_instance field
+      const { data, error } = await supabase
+        .from("cliente_config")
+        .select("evo_instance")
+        .eq("cliente_id", user?.id)
+        .not("evo_instance", "is", null)
+        .limit(1)
+
+      console.log("Query result:", {
+        data,
+        error,
+        hasInstance: !!data && data.length > 0,
+      })
+
+      if (error) {
+        console.error("Error checking existing instance:", error)
+        return false
+      }
+
+      // If user has evo_instance filled, they already have an instance
+      const hasInstance = !!(data && data.length > 0)
+      console.log("Has existing instance:", hasInstance)
+      return hasInstance
+    } catch (error) {
+      console.error("Error checking existing instance:", error)
+      return false
+    }
+  }
+
   const handleCreateInstance = async () => {
     if (!instanceName.trim()) {
       toast({
@@ -234,6 +289,28 @@ const Evolution = () => {
       })
       return
     }
+
+    // Check if user already has an instance (both from database and local state)
+    console.log("About to check for existing instance...")
+    console.log("Local state hasCreatedInstance:", hasCreatedInstance)
+
+    if (hasCreatedInstance) {
+      console.log("Instance already exists (local state) - showing limit modal")
+      setShowLimitModal(true)
+      return
+    }
+
+    const hasExistingInstance = await checkExistingInstance()
+    console.log("Database check result:", hasExistingInstance)
+
+    if (hasExistingInstance) {
+      console.log("Existing instance found in database - showing limit modal")
+      setShowLimitModal(true)
+      setHasCreatedInstance(true)
+      return
+    }
+
+    console.log("No existing instance found - proceeding with creation")
 
     setIsLoading(true)
     setQrCodeData(null)
@@ -273,6 +350,38 @@ const Evolution = () => {
         statusCheckIntervalRef.current = window.setInterval(() => {
           checkConnectionStatus()
         }, 10000)
+
+        // Save instance name to database
+        try {
+          console.log("💾 Salvando instância no banco...")
+          console.log("👤 User ID:", user?.id)
+          console.log("🤖 Instance Name:", instanceName.trim())
+
+          const { data: insertData, error: dbError } = await supabase
+            .from("cliente_config")
+            .upsert(
+              {
+                cliente_id: user?.id,
+                evo_instance: instanceName.trim(),
+              },
+              {
+                onConflict: "cliente_id",
+              }
+            )
+            .select()
+
+          console.log("📊 Resultado do upsert:", { insertData, dbError })
+
+          if (dbError) {
+            console.error("❌ Erro ao salvar instância:", dbError)
+          } else {
+            console.log("✅ Instância salva com sucesso!")
+            console.log("📄 Dados inseridos:", insertData)
+            setHasCreatedInstance(true)
+          }
+        } catch (dbError) {
+          console.error("❌ Erro inesperado ao salvar:", dbError)
+        }
 
         toast({
           title: "Instância criada!",
@@ -527,6 +636,46 @@ const Evolution = () => {
           </Card>
         </div>
       </main>
+
+      {/* Limit Modal */}
+      <Dialog open={showLimitModal} onOpenChange={setShowLimitModal}>
+        <DialogContent className="sm:max-w-md bg-slate-800 border-slate-700">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Bot className="h-5 w-5 text-red-500" />
+              Limite de Instância Atingido
+            </DialogTitle>
+            <DialogDescription className="text-slate-300">
+              Você já possui uma instância criada em sua conta.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4 py-4">
+            <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4">
+              <p className="text-red-200 text-sm">
+                <strong>Limite atingido:</strong> Cada usuário pode criar apenas
+                uma instância Evolution.
+              </p>
+            </div>
+
+            <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
+              <p className="text-blue-200 text-sm">
+                <strong>Dica:</strong> Para modificar sua instância existente,
+                edite as configurações e salve novamente.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <Button
+              onClick={() => setShowLimitModal(false)}
+              className="bg-green-600 hover:bg-green-700 text-white border-2 border-green-400 hover:border-green-300"
+            >
+              Entendi
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
