@@ -1,17 +1,18 @@
 import React, { useEffect } from "react"
 import { LineChart, Users, Smartphone, Bot } from "lucide-react"
-import { useClientStats } from "@/hooks/useClientStats"
+import { useUserSpecificData } from "@/hooks/useUserSpecificData"
 import { useDashboardRealtime } from "@/hooks/useDashboardRealtime"
 // Import components
 import DashboardHeader from "@/components/metrics/DashboardHeader"
 import StatCard from "@/components/metrics/StatCard"
 //import ClientGrowthChart from '@/components/metrics/ClientGrowthChart';
 //import PetTypesChart from '@/components/metrics/PetTypesChart';
-import ServicesBarChart from "@/components/metrics/ServicesBarChart"
+// Temporarily commented - Funil de Leads functionality
+// import ServicesBarChart from "@/components/metrics/ServicesBarChart"
 import RecentClientsTable from "@/components/metrics/RecentClientsTable"
 
 const MetricsDashboard = () => {
-  const { stats, loading, refetchStats } = useClientStats()
+  const { stats, loading, refetchStats } = useUserSpecificData()
 
   // Initialize real-time updates for the metrics dashboard
   useDashboardRealtime()
@@ -21,6 +22,8 @@ const MetricsDashboard = () => {
     refetchStats()
   }, [refetchStats])
 
+  // Temporarily commented - Funil de Leads functionality
+  /*
   // Use real data for monthly customers growth
   const monthlyCustomersData =
     stats.monthlyGrowth?.length > 0
@@ -39,8 +42,11 @@ const MetricsDashboard = () => {
           { month: "Nov", clients: 0 },
           { month: "Dez", clients: 0 },
         ]
+  */
 
   // Calculate funnel data automatically based on real stats
+  // Temporarily commented - Funil de Leads functionality
+  /*
   const calculateFunnelData = () => {
     const totalLeads = stats.totalLeads || 0
     const totalClients = stats.totalClients || 0
@@ -62,6 +68,7 @@ const MetricsDashboard = () => {
   }
 
   const petServicesData = calculateFunnelData()
+  */
 
   // Use real client data from the database
   const recentClientsData =
@@ -105,8 +112,11 @@ const MetricsDashboard = () => {
             iconTextClass="text-green-600 dark:text-green-400"
           />
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ServicesBarChart data={petServicesData} />
+
+        {/* Tabela de Leads Recentes - Largura completa para melhor aproveitamento da tela */}
+        <div className="w-full">
+          {/* Temporarily commented - Funil de Leads */}
+          {/* <ServicesBarChart data={petServicesData} /> */}
           <RecentClientsTable clients={recentClientsData} loading={loading} />
         </div>
       </main>

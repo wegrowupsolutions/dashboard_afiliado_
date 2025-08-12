@@ -55,13 +55,26 @@ const Evolution = () => {
   // Check for existing instances when component loads
   useEffect(() => {
     const checkOnLoad = async () => {
-      if (user?.id) {
+      console.log("🎯 Evolution component loaded - checking user and instances")
+      console.log("👤 Current user:", {
+        exists: !!user,
+        id: user?.id,
+        idType: typeof user?.id,
+        email: user?.email,
+        metadata: user?.user_metadata,
+      })
+
+      if (user?.cliente_id) {
+        console.log("✅ User authenticated, checking for existing instances...")
         const hasInstance = await checkExistingInstance()
+        console.log("📋 Instance check result:", hasInstance)
         setHasCreatedInstance(hasInstance)
+      } else {
+        console.log("❌ No user authenticated or missing cliente_id")
       }
     }
     checkOnLoad()
-  }, [user?.id])
+  }, [user?.cliente_id])
 
   const checkConnectionStatus = async () => {
     try {
@@ -249,33 +262,102 @@ const Evolution = () => {
   // Check if user already has an instance saved
   const checkExistingInstance = async () => {
     try {
-      console.log("Checking for existing instance for user:", user?.id)
+      console.log("🔍 SUPER DEBUG - Checking for existing instance")
+      console.log("👤 User object:", user)
+      console.log("🔑 User cliente_id:", user?.cliente_id)
+      console.log("🆔 User id:", user?.id)
+      console.log("📧 User email:", user?.email)
+      console.log("🔒 User exists:", !!user)
 
-      // Check if user has an instance name saved in evo_instance field
+      if (!user?.cliente_id) {
+        console.log("❌ ERRO CRÍTICO: No cliente_id available!")
+        console.log("🔄 Tentando usar user.id como fallback:", user?.id)
+
+        // FALLBACK: Se não tem cliente_id, usar user.id
+        if (!user?.id) {
+          console.log("❌ ERRO FATAL: Nem cliente_id nem id disponível!")
+          return false
+        }
+      }
+
+      // Use cliente_id ou user.id como fallback
+      const searchId = user.cliente_id || user.id
+      console.log("🔍 Usando ID para busca:", searchId)
+
+      // Use cliente_id (UUID) para verificar instâncias
       const { data, error } = await supabase
         .from("cliente_config")
-        .select("evo_instance")
-        .eq("cliente_id", user?.id)
-        .not("evo_instance", "is", null)
+        .select("evo_instance, cliente_id")
+        .eq("cliente_id", searchId)
         .limit(1)
 
-      console.log("Query result:", {
+      console.log("📊 SUPER DEBUG Query result:", {
+        searchId,
         data,
         error,
         hasInstance: !!data && data.length > 0,
+        dataLength: data?.length,
+        queryUsed: `SELECT evo_instance FROM cliente_config WHERE cliente_id = '${searchId}' AND evo_instance IS NOT NULL LIMIT 1`,
       })
 
       if (error) {
-        console.error("Error checking existing instance:", error)
+        console.error("❌ Error checking existing instance:", error)
+        console.log("🔍 Error code:", error.code)
+        console.log("🔍 Error message:", error.message)
+
+        // If it's just a "no rows found" error, that's actually expected for new users
+        if (error.code === "PGRST116") {
+          console.log(
+            "✅ No existing instance found (this is normal for new users)"
+          )
+          return false
+        }
         return false
       }
 
-      // If user has evo_instance filled, they already have an instance
-      const hasInstance = !!(data && data.length > 0)
-      console.log("Has existing instance:", hasInstance)
-      return hasInstance
+      // Verificar se existe registro E se evo_instance está preenchido
+      const hasRecord = !!(data && data.length > 0)
+
+      console.log("🔍 SUPER DEBUG - Data array:", data)
+      console.log("🔍 SUPER DEBUG - Data length:", data?.length)
+      console.log("🔍 SUPER DEBUG - First record:", data?.[0])
+      console.log("🔍 SUPER DEBUG - evo_instance raw:", data?.[0]?.evo_instance)
+      console.log(
+        "🔍 SUPER DEBUG - evo_instance type:",
+        typeof data?.[0]?.evo_instance
+      )
+      console.log(
+        "🔍 SUPER DEBUG - evo_instance length:",
+        data?.[0]?.evo_instance?.length
+      )
+      console.log(
+        "🔍 SUPER DEBUG - evo_instance after trim:",
+        data?.[0]?.evo_instance?.trim()
+      )
+
+      const evoInstanceValue = data?.[0]?.evo_instance
+      const hasEvoInstance =
+        hasRecord && evoInstanceValue && evoInstanceValue.trim() !== ""
+
+      console.log("✅ RESULTADO FINAL - Has record:", hasRecord)
+      console.log("✅ RESULTADO FINAL - Has evo_instance:", hasEvoInstance)
+      console.log("✅ RESULTADO FINAL - evo_instance value:", evoInstanceValue)
+
+      if (hasEvoInstance) {
+        console.log("📋 Existing instance details:", data[0])
+        console.log("🚨 DEVERIA BLOQUEAR CRIAÇÃO DE NOVA INSTÂNCIA!")
+        console.log("🚨 evo_instance preenchido:", data[0].evo_instance)
+      } else if (hasRecord) {
+        console.log(
+          "✅ Registro existe mas evo_instance vazio, pode criar nova"
+        )
+      } else {
+        console.log("✅ Nenhum registro encontrado, pode criar nova")
+      }
+
+      return hasEvoInstance
     } catch (error) {
-      console.error("Error checking existing instance:", error)
+      console.error("❌ Unexpected error checking existing instance:", error)
       return false
     }
   }
@@ -290,27 +372,74 @@ const Evolution = () => {
       return
     }
 
-    // Check if user already has an instance (both from database and local state)
-    console.log("About to check for existing instance...")
-    console.log("Local state hasCreatedInstance:", hasCreatedInstance)
+    // 🛡️ PRIMEIRA VERIFICAÇÃO: Estado local (mais rápida)
+    console.log("🔍 Step 1: Checking local state...")
+    console.log("📋 Local state hasCreatedInstance:", hasCreatedInstance)
 
     if (hasCreatedInstance) {
-      console.log("Instance already exists (local state) - showing limit modal")
+      console.log(
+        "🚫 Instance already exists (local state) - showing limit modal"
+      )
       setShowLimitModal(true)
       return
     }
 
-    const hasExistingInstance = await checkExistingInstance()
-    console.log("Database check result:", hasExistingInstance)
+    // 🛡️ VERIFICAÇÃO SIMPLES: Check if evo_instance is filled
+    console.log("🔍 Checking evo_instance...")
+    console.log("👤 User object:", user)
+    console.log("📧 USUÁRIO TESTANDO:", user?.email || "EMAIL NÃO DEFINIDO")
+    console.log("🔑 User cliente_id:", user?.cliente_id)
+    console.log("🆔 User id:", user?.id)
 
-    if (hasExistingInstance) {
-      console.log("Existing instance found in database - showing limit modal")
-      setShowLimitModal(true)
-      setHasCreatedInstance(true)
+    // Verificar se o usuário está autenticado
+    if (!user || (!user.cliente_id && !user.id)) {
+      console.error("❌ User not authenticated or missing cliente_id/id")
+      toast({
+        title: "Erro de autenticação",
+        description: "Usuário não está autenticado. Faça login novamente.",
+        variant: "destructive",
+      })
       return
     }
 
-    console.log("No existing instance found - proceeding with creation")
+    const searchId = user.cliente_id || user.id
+    console.log("🔍 Using search ID:", searchId, "Type:", typeof searchId)
+
+    try {
+      // Buscar por AMBOS os IDs: cliente_id E user.id (para compatibilidade)
+      const { data, error } = await supabase
+        .from("cliente_config")
+        .select("evo_instance, cliente_id")
+        .in("cliente_id", [user.cliente_id, user.id])
+        .limit(1)
+
+      console.log("📊 Query result:", {
+        data,
+        error,
+        searchClienteId: user.cliente_id,
+        searchUserId: user.id,
+        userEmail: user.email,
+        dataLength: data?.length,
+        hasRecords: !!(data && data.length > 0),
+        evoInstanceValue: data?.[0]?.evo_instance,
+        evoInstanceExists: !!data?.[0]?.evo_instance,
+      })
+
+      if (error) {
+        console.error("❌ Error checking evo_instance:", error)
+      } else if (data && data.length > 0 && data[0].evo_instance) {
+        // SE TEM EVO_INSTANCE PREENCHIDO = BLOQUEAR
+        console.log(
+          "🚨 BLOQUEANDO: evo_instance já existe:",
+          data[0].evo_instance
+        )
+        setShowLimitModal(true)
+        return
+      }
+      console.log("✅ evo_instance vazio - permitindo criação")
+    } catch (error) {
+      console.error("❌ Error in evo_instance check:", error)
+    }
 
     setIsLoading(true)
     setQrCodeData(null)
@@ -318,7 +447,44 @@ const Evolution = () => {
     retryCountRef.current = 0 // Reset retry counter for new instance creation
 
     try {
-      console.log("Creating instance with name:", instanceName)
+      console.log("🚀 Creating instance with name:", instanceName)
+
+      // Validate user authentication
+      if (!user || !user.id) {
+        console.error("❌ User not authenticated or missing ID")
+        toast({
+          title: "Erro de autenticação",
+          description: "Usuário não está autenticado. Faça login novamente.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const userIdString = user.id.toString()
+      console.log("👤 User authentication details:", {
+        userExists: !!user,
+        userId: user.id,
+        userIdType: typeof user.id,
+        userIdString: userIdString,
+        userEmail: user.email,
+        userMetadata: user.user_metadata,
+      })
+
+      // Send user data to backend so it can generate cliente_id and create database entries
+      const requestData = {
+        instanceName: instanceName.trim(),
+        user_data: {
+          id: user.id, // UUID
+          cliente_id: user.cliente_id, // UUID para relacionamentos
+          email: user.email,
+          name: user.user_metadata?.name,
+          phone: user.user_metadata?.phone,
+        },
+      }
+
+      console.log("📤 Sending data to backend:", requestData)
+      console.log("📤 JSON payload:", JSON.stringify(requestData, null, 2))
+
       const response = await fetch(
         "https://webhook.serverwegrowup.com.br/webhook/instanciaevolution",
         {
@@ -326,14 +492,18 @@ const Evolution = () => {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            instanceName: instanceName.trim(),
-          }),
+          body: JSON.stringify(requestData),
         }
       )
 
-      console.log("Create instance response status:", response.status)
+      console.log("📥 Backend response details:", {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries()),
+      })
 
+      // Check if response is successful
       if (response.ok) {
         const blob = await response.blob()
         console.log("Received blob content type:", blob.type)
@@ -351,46 +521,38 @@ const Evolution = () => {
           checkConnectionStatus()
         }, 10000)
 
-        // Save instance name to database
-        try {
-          console.log("💾 Salvando instância no banco...")
-          console.log("👤 User ID:", user?.id)
-          console.log("🤖 Instance Name:", instanceName.trim())
+        // Backend handles database creation with client_id generation
+        console.log(
+          "⏳ Backend processará e criará configuração com cliente_id..."
+        )
 
-          const { data: insertData, error: dbError } = await supabase
-            .from("cliente_config")
-            .upsert(
-              {
-                cliente_id: user?.id,
-                evo_instance: instanceName.trim(),
-              },
-              {
-                onConflict: "cliente_id",
-              }
-            )
-            .select()
+        // Set local state to prevent multiple creation attempts
+        setHasCreatedInstance(true)
 
-          console.log("📊 Resultado do upsert:", { insertData, dbError })
-
-          if (dbError) {
-            console.error("❌ Erro ao salvar instância:", dbError)
-          } else {
-            console.log("✅ Instância salva com sucesso!")
-            console.log("📄 Dados inseridos:", insertData)
-            setHasCreatedInstance(true)
-          }
-        } catch (dbError) {
-          console.error("❌ Erro inesperado ao salvar:", dbError)
-        }
+        console.log(
+          "✅ Instância criada no Evolution, backend gerenciará banco de dados"
+        )
 
         toast({
           title: "Instância criada!",
           description: "Escaneie o QR code para conectar seu WhatsApp.",
         })
       } else {
+        // Handle error response
         const errorText = await response.text()
-        console.error("Falha ao criar instância:", errorText)
-        throw new Error("Falha ao criar instância")
+        console.error("❌ Backend returned error:", {
+          status: response.status,
+          statusText: response.statusText,
+          errorBody: errorText,
+        })
+
+        toast({
+          title: "Erro no backend",
+          description: `Erro ${response.status}: ${errorText}`,
+          variant: "destructive",
+        })
+
+        throw new Error(`Backend error ${response.status}: ${errorText}`)
       }
     } catch (error) {
       console.error("Erro ao criar instância:", error)
@@ -642,31 +804,47 @@ const Evolution = () => {
         <DialogContent className="sm:max-w-md bg-slate-800 border-slate-700">
           <DialogHeader>
             <DialogTitle className="text-white flex items-center gap-2">
-              <Bot className="h-5 w-5 text-red-500" />
-              Limite de Instância Atingido
+              <Bot className="h-5 w-5 text-amber-500" />
+              Instância Já Existente
             </DialogTitle>
             <DialogDescription className="text-slate-300">
-              Você já possui uma instância criada em sua conta.
+              Detectamos que você já possui uma instância Evolution ativa.
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col gap-4 py-4">
-            <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4">
-              <p className="text-red-200 text-sm">
-                <strong>Limite atingido:</strong> Cada usuário pode criar apenas
-                uma instância Evolution.
+            <div className="bg-amber-900/20 border border-amber-500/30 rounded-lg p-4">
+              <p className="text-amber-200 text-sm">
+                <strong>Limite de Segurança:</strong> Para garantir a
+                estabilidade, cada usuário pode ter apenas uma instância
+                Evolution ativa por vez.
               </p>
             </div>
 
             <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
               <p className="text-blue-200 text-sm">
-                <strong>Dica:</strong> Para modificar sua instância existente,
-                edite as configurações e salve novamente.
+                <strong>Como proceder:</strong> Se precisar de uma nova
+                configuração, você pode editar sua instância atual nas
+                configurações.
+              </p>
+            </div>
+
+            <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4">
+              <p className="text-green-200 text-sm">
+                <strong>Já conectado?</strong> Se sua instância já está
+                funcionando, você pode voltar ao dashboard e começar a usar!
               </p>
             </div>
           </div>
 
           <div className="flex justify-end gap-3">
+            <Button
+              onClick={() => navigate("/dashboard")}
+              variant="outline"
+              className="border-slate-600 text-slate-300 hover:bg-slate-700"
+            >
+              Ir ao Dashboard
+            </Button>
             <Button
               onClick={() => setShowLimitModal(false)}
               className="bg-green-600 hover:bg-green-700 text-white border-2 border-green-400 hover:border-green-300"

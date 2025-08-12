@@ -63,11 +63,13 @@ const Index = () => {
     setIsPageLoaded(true)
   }, [])
 
+  // 🔧 CORREÇÃO: Aguardar isLoading antes de redirecionar
   useEffect(() => {
-    if (user) {
+    if (!authLoading && user) {
+      console.log("✅ Usuário autenticado - redirecionando para dashboard")
       navigate("/dashboard")
     }
-  }, [user, navigate])
+  }, [user, authLoading, navigate])
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword)

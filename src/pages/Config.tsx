@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { useAuth } from "@/hooks/useAuth"
 import { supabase } from "@/integrations/supabase/client"
+import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import {
   ArrowLeft,
@@ -50,6 +51,7 @@ import {
 const Config = () => {
   const { user, signOut, isLoading: authLoading } = useAuth()
   const navigate = useNavigate()
+  const { toast } = useToast()
 
   // Mock hooks since they don't exist yet - we'll create simple state management
   const [formData, setFormData] = useState({
@@ -91,12 +93,144 @@ const Config = () => {
   const [showLimitModal, setShowLimitModal] = useState(false)
   const [showValidationModal, setShowValidationModal] = useState(false)
   const [missingField, setMissingField] = useState("")
+  const [isLoadingExistingData, setIsLoadingExistingData] = useState(false)
+  const [hasExistingPrompt, setHasExistingPrompt] = useState(false)
+  const [isEditMode, setIsEditMode] = useState(false)
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
     }))
+  }
+
+  // Parse prompt back to form data for editing
+  const parsePromptToFormData = (promptText: string) => {
+    try {
+      const extractSection = (
+        prompt: string,
+        sectionTitle: string,
+        nextSection?: string
+      ) => {
+        const regex = nextSection
+          ? new RegExp(
+              `${sectionTitle}\\s*\\n([\\s\\S]*?)(?=\\n## ${nextSection}|\\n---|\$)`,
+              "i"
+            )
+          : new RegExp(
+              `${sectionTitle}\\s*\\n([\\s\\S]*?)(?=\\n##|\\n---|\$)`,
+              "i"
+            )
+        const match = prompt.match(regex)
+        return match ? match[1].trim() : ""
+      }
+
+      // Extract basic fields
+      const parsedData = {
+        specificScenario: extractSection(
+          promptText,
+          "## Contexto Específico",
+          "Problema a Resolver"
+        ),
+        problemToSolve: extractSection(
+          promptText,
+          "## Problema a Resolver",
+          "Resultado Esperado"
+        ),
+        expectedResult: extractSection(
+          promptText,
+          "## Resultado Esperado",
+          "Audiência-Alvo"
+        ),
+        targetAudience: extractSection(
+          promptText,
+          "## Audiência-Alvo",
+          "Ambiente de Atuação"
+        ),
+        environment: extractSection(
+          promptText,
+          "## Ambiente de Atuação",
+          "Tom de Voz"
+        ),
+        toneOfVoice: extractSection(
+          promptText,
+          "## Tom de Voz",
+          "Nível de Linguagem"
+        ),
+        languageLevel: extractSection(
+          promptText,
+          "## Nível de Linguagem",
+          "Características de Personalidade"
+        ),
+        personalityCharacteristics: extractSection(
+          promptText,
+          "## Características de Personalidade",
+          "Conhecimento Específico"
+        ),
+        specificKnowledge: extractSection(
+          promptText,
+          "## Conhecimento Específico",
+          "Políticas Importantes"
+        ),
+        importantPolicies: extractSection(
+          promptText,
+          "## Políticas Importantes",
+          "Limites de Ação"
+        ),
+        actionLimits: extractSection(
+          promptText,
+          "## Limites de Ação",
+          "Restrições Legais"
+        ),
+        legalEthicalRestrictions: extractSection(
+          promptText,
+          "## Restrições Legais",
+          "Procedimentos Obrigatórios"
+        ),
+        mandatoryProcedures: extractSection(
+          promptText,
+          "### Procedimentos Obrigatórios",
+          "Estrutura da Conversa"
+        ),
+        confidentialInformation: "", // This field might not be in existing prompts
+        conversationStepByStep: extractSection(
+          promptText,
+          "## Estrutura da Conversa",
+          "FAQ"
+        ),
+        frequentQuestions: extractSection(
+          promptText,
+          "## FAQ - Perguntas Frequentes",
+          "Exemplos de Uso"
+        ),
+        practicalExamples: extractSection(
+          promptText,
+          "## Exemplos de Uso",
+          "Métricas de Sucesso"
+        ),
+        qualityIndicators: extractSection(
+          promptText,
+          "## Métricas de Sucesso",
+          "Métricas de Performance"
+        ),
+        performanceMetrics: extractSection(
+          promptText,
+          "### Métricas de Performance",
+          "Critérios de Avaliação"
+        ),
+        evaluationCriteria: extractSection(
+          promptText,
+          "### Critérios de Avaliação",
+          "Links de Promoção"
+        ),
+        promotionLinks: [{ url: "", isPrimary: true }], // We'll handle links separately if needed
+      }
+
+      return parsedData
+    } catch (error) {
+      console.error("Erro ao fazer parse do prompt:", error)
+      return null
+    }
   }
 
   const toggleSection = (section: keyof typeof expandedSections) => {
@@ -144,6 +278,55 @@ const Config = () => {
   const handleBackToDashboard = () => {
     navigate("/dashboard")
   }
+
+  // Load existing configuration when component mounts
+  useEffect(() => {
+    const loadExistingConfig = async () => {
+      if (!user?.id) return
+
+      setIsLoadingExistingData(true)
+      try {
+        const userIdString = user.id.toString()
+        const { data, error } = await supabase
+          .from("cliente_config")
+          .select("prompt")
+          .eq("cliente_id", userIdString)
+          .single()
+
+        if (data && data.prompt && !error) {
+          console.log("✅ Configuração existente encontrada, carregando...")
+          setHasExistingPrompt(true)
+          setIsEditMode(true)
+
+          // Parse existing prompt to populate form fields
+          const parsedData = parsePromptToFormData(data.prompt)
+          if (parsedData) {
+            setFormData(parsedData)
+            console.log("📝 Dados carregados nos campos para edição")
+          }
+
+          toast({
+            title: "✏️ Modo Edição",
+            description:
+              "Sua configuração foi carregada. Você pode editá-la e salvar as alterações.",
+            variant: "default",
+          })
+        } else if (error && error.code !== "PGRST116") {
+          console.error("Erro ao carregar configuração:", error)
+        } else {
+          console.log("📝 Modo Criação - Nova configuração")
+          setHasExistingPrompt(false)
+          setIsEditMode(false)
+        }
+      } catch (error) {
+        console.error("Erro inesperado ao carregar configuração:", error)
+      } finally {
+        setIsLoadingExistingData(false)
+      }
+    }
+
+    loadExistingConfig()
+  }, [user?.id, toast])
 
   // Check if user already has a saved prompt
   const checkExistingPrompt = async () => {
@@ -369,32 +552,46 @@ ${
         return
       }
 
-      // Check if user already has a prompt saved
-      const hasExistingPrompt = await checkExistingPrompt()
-
-      if (hasExistingPrompt) {
-        setShowLimitModal(true)
-        setIsSaving(false)
-        return
-      }
-
       // Convert formData to structured prompt format
       const promptString = convertToPrompt(formData)
 
-      // Save to cliente_config table in prompt field
-      const { error } = await supabase.from("cliente_config").upsert({
-        cliente_id: user?.id,
-        prompt: promptString,
-      })
+      // Convert user ID to string to match cliente_config.cliente_id type
+      const userIdString = user?.id?.toString()
+
+      // Save/Update to cliente_config table in prompt field (allow updates)
+      const { error } = await supabase.from("cliente_config").upsert(
+        {
+          cliente_id: userIdString,
+          prompt: promptString,
+        },
+        {
+          onConflict: "cliente_id",
+        }
+      )
 
       if (error) {
         throw error
       }
 
       console.log("Configuration saved successfully")
-      // Show success message
+
+      // Show success toast
+      toast({
+        title: isEditMode
+          ? "✅ Configuração atualizada!"
+          : "✨ Configuração criada!",
+        description: isEditMode
+          ? "Suas alterações foram salvas com sucesso."
+          : "Seu prompt foi criado e salvo com sucesso.",
+        variant: "default",
+      })
     } catch (error) {
       console.error("Error saving configuration:", error)
+      toast({
+        title: "Erro ao salvar",
+        description: "Não foi possível salvar a configuração. Tente novamente.",
+        variant: "destructive",
+      })
     } finally {
       setIsSaving(false)
     }
@@ -451,6 +648,18 @@ ${
             </Button>
             <Bot className="h-8 w-8 text-cyan-400" />
             <h1 className="text-2xl font-bold">Afiliado AI</h1>
+            {!isLoadingExistingData && (
+              <Badge
+                variant="outline"
+                className={`ml-3 px-3 py-1 border-0 ${
+                  isEditMode
+                    ? "bg-blue-500/20 text-blue-200"
+                    : "bg-green-500/20 text-green-200"
+                }`}
+              >
+                {isEditMode ? "✏️ Editando" : "✨ Criando"}
+              </Badge>
+            )}
           </div>
           <div className="flex items-center gap-4">
             <Badge
@@ -1482,9 +1691,15 @@ AÇÕES CORRETIVAS:
             <Button
               className="bg-green-600 hover:bg-green-700 text-white"
               onClick={handleSaveConfig}
-              disabled={isSaving}
+              disabled={isSaving || isLoadingExistingData}
             >
-              {isSaving ? "Salvando..." : "Salvar Configuração"}
+              {isSaving
+                ? "Salvando..."
+                : isLoadingExistingData
+                ? "Carregando..."
+                : isEditMode
+                ? "💾 Atualizar Configuração"
+                : "✨ Gerar Configuração"}
             </Button>
           </div>
         </div>
@@ -1504,17 +1719,17 @@ AÇÕES CORRETIVAS:
           </DialogHeader>
 
           <div className="flex flex-col gap-4 py-4">
-            <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4">
-              <p className="text-red-200 text-sm">
-                <strong>Limite atingido:</strong> Cada usuário pode criar apenas
-                um prompt de agente.
+            <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4">
+              <p className="text-green-200 text-sm">
+                <strong>Configuração existente:</strong> Você já possui uma
+                configuração de agente salva.
               </p>
             </div>
 
             <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
               <p className="text-blue-200 text-sm">
-                <strong>Dica:</strong> Para modificar seu agente existente,
-                edite as configurações e salve novamente.
+                <strong>Dica:</strong> Você pode editar sua configuração
+                existente e salvar as mudanças normalmente.
               </p>
             </div>
           </div>

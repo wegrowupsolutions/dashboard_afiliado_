@@ -15,7 +15,7 @@ import ClientsTable from "@/components/clients/ClientsTable"
 import AddClientDialog from "@/components/clients/AddClientDialog"
 import EditClientDialog from "@/components/clients/EditClientDialog"
 import ClientDetailSheet from "@/components/clients/ClientDetailSheet"
-import { useClientManagement } from "@/hooks/useClientManagement"
+import { useUserClientManagement } from "@/hooks/useUserClientManagement"
 
 const ClientsDashboard = () => {
   const { user, isLoading } = useAuth()
@@ -52,7 +52,7 @@ const ClientsDashboard = () => {
     handleMessageClick,
     handleMessageSubmit,
     handlePauseDurationConfirm,
-  } = useClientManagement()
+  } = useUserClientManagement()
 
   React.useEffect(() => {
     if (!isLoading && !user) {

@@ -15,7 +15,8 @@ export type Database = {
           cliente_id: string
           prompt: string | null
           evo_instance: string | null
-          nome_tabela_leads: string | null
+          base_leads: string | null
+          bucket_name: string | null
           created_at: string
           updated_at: string
         }
@@ -24,7 +25,8 @@ export type Database = {
           cliente_id: string
           prompt?: string | null
           evo_instance?: string | null
-          nome_tabela_leads?: string | null
+          base_leads?: string | null
+          bucket_name?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -33,7 +35,8 @@ export type Database = {
           cliente_id?: string
           prompt?: string | null
           evo_instance?: string | null
-          nome_tabela_leads?: string | null
+          base_leads?: string | null
+          bucket_name?: string | null
           created_at?: string
           updated_at?: string
         }

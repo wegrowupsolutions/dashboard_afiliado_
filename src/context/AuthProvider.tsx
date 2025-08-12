@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react"
 import { Session, User } from "@supabase/supabase-js"
 import { supabase } from "@/integrations/supabase/client"
@@ -11,6 +10,10 @@ const supabaseAdmin = createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVmY2FyenpvdXZ4Z3FsanF4ZG5jIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MzU3NTk1MywiZXhwIjoyMDY5MTUxOTUzfQ.YNHS53Baa6Y517X0v1n15bKsILEWnMb85rpsmsaDy8M"
 )
 
+// Chaves para persistência da sessão
+const STORAGE_KEY = "afiliado_ai_session"
+const USER_KEY = "afiliado_ai_user"
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -19,20 +22,82 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      setIsLoading(false)
-    })
+    const initializeAuth = async () => {
+      try {
+        console.log("🔄 Inicializando autenticação...")
 
-    // Listen for auth changes
+        // 1. Tentar recuperar sessão do localStorage
+        const savedSession = localStorage.getItem(STORAGE_KEY)
+        const savedUser = localStorage.getItem(USER_KEY)
+
+        if (savedSession && savedUser) {
+          console.log("🔍 Sessão encontrada no localStorage")
+          try {
+            const parsedSession = JSON.parse(savedSession)
+            const parsedUser = JSON.parse(savedUser)
+
+            // Verificar se a sessão não expirou
+            const now = Math.floor(Date.now() / 1000)
+            if (parsedSession.expires_at > now) {
+              console.log("✅ Sessão válida - restaurando usuário")
+              setSession(parsedSession)
+              setUser(parsedUser)
+              setIsLoading(false)
+              return
+            } else {
+              console.log("⏰ Sessão expirada - removendo do localStorage")
+              localStorage.removeItem(STORAGE_KEY)
+              localStorage.removeItem(USER_KEY)
+            }
+          } catch (parseError) {
+            console.error("❌ Erro ao fazer parse da sessão:", parseError)
+            localStorage.removeItem(STORAGE_KEY)
+            localStorage.removeItem(USER_KEY)
+          }
+        } else {
+          console.log("📭 Nenhuma sessão salva encontrada")
+
+          // 2. Fallback: verificar sessão do Supabase (apenas se não restaurou do localStorage)
+          console.log("🔍 Verificando sessão do Supabase...")
+          const {
+            data: { session },
+          } = await supabase.auth.getSession()
+          setSession(session)
+          setUser(session?.user ?? null)
+          setIsLoading(false)
+        }
+      } catch (error) {
+        console.error("❌ Erro ao inicializar autenticação:", error)
+        setIsLoading(false)
+      }
+    }
+
+    initializeAuth()
+
+    // Listen for auth changes (apenas para sessões reais do Supabase)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      setIsLoading(false)
+      // Só sobrescrever se for uma sessão real do Supabase
+      // (não interferir com nossa sessão mock do localStorage)
+      if (
+        session?.access_token &&
+        !session.access_token.startsWith("mock_token_")
+      ) {
+        console.log("🔄 Sessão real do Supabase detectada")
+        setSession(session)
+        setUser(session?.user ?? null)
+        setIsLoading(false)
+      } else if (!session) {
+        // Só limpar se não temos sessão salva no localStorage
+        const savedSession = localStorage.getItem(STORAGE_KEY)
+        if (!savedSession) {
+          console.log("🧹 Limpando sessão (sem localStorage)")
+          setSession(null)
+          setUser(null)
+          setIsLoading(false)
+        }
+      }
     })
 
     return () => subscription.unsubscribe()
@@ -72,7 +137,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       // Create a mock user session (simulated authentication)
       const mockUser = {
-        id: clienteData.id, // Use dados_cliente ID as user ID
+        id: clienteData.id, // UUID do registro
+        cliente_id: clienteData.cliente_id, // UUID para relacionamentos
         email: clienteData.email,
         user_metadata: {
           name: clienteData.nome,
@@ -99,6 +165,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       // Set the session manually
       setSession(mockSession as any)
       setUser(mockUser as any)
+
+      // 💾 SALVAR NO LOCALSTORAGE PARA PERSISTIR APÓS REFRESH
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(mockSession))
+      localStorage.setItem(USER_KEY, JSON.stringify(mockUser))
+      console.log("💾 Sessão salva no localStorage para persistência")
 
       console.log("🎉 Login híbrido concluído com sucesso!")
       setIsLoading(false)
@@ -143,7 +214,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }
 
   const signOut = async () => {
-    await supabase.auth.signOut()
+    console.log("🔓 Iniciando logout...")
+
+    try {
+      // Clear mock session
+      setSession(null)
+      setUser(null)
+
+      // 🗑️ LIMPAR LOCALSTORAGE
+      localStorage.removeItem(STORAGE_KEY)
+      localStorage.removeItem(USER_KEY)
+      console.log("🗑️ LocalStorage limpo")
+
+      // Clear any Supabase session (if exists)
+      await supabase.auth.signOut()
+
+      console.log("✅ Logout concluído com sucesso!")
+
+      // Redirect to login page
+      window.location.href = "/"
+    } catch (error) {
+      console.error("❌ Erro durante logout:", error)
+      // Force redirect even if error
+      window.location.href = "/"
+    }
   }
 
   const resetPassword = async (email: string) => {

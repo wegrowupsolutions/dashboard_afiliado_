@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { useToast } from "@/hooks/use-toast"
 import ChatHeader from "@/components/chat/ChatHeader"
 import ChatLayout from "@/components/chat/ChatLayout"
-import { useConversations } from "@/hooks/useConversations"
+import { useUserFilteredConversations } from "@/hooks/useUserFilteredConversations"
 import { useRealtimeUpdates } from "@/hooks/useRealtimeUpdates"
 import { useChatMessages } from "@/hooks/useChatMessages"
 import PauseDurationDialog from "@/components/PauseDurationDialog"
@@ -23,7 +23,7 @@ const ChatsDashboard = () => {
     loading: conversationsLoading,
     updateConversationLastMessage,
     fetchConversations,
-  } = useConversations()
+  } = useUserFilteredConversations()
 
   const {
     messages,

@@ -1,7 +1,15 @@
-
-import React, { useState } from 'react';
-import { FileUp, Upload, Loader2, FileText } from 'lucide-react';
-import { 
+import React, { useState } from "react"
+import {
+  FileUp,
+  Upload,
+  Loader2,
+  FileText,
+  Image,
+  Video,
+  Music,
+  File,
+} from "lucide-react"
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -9,55 +17,63 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useDynamicStorage } from "@/hooks/useDynamicStorage"
 
 interface AddDocumentDialogProps {
-  onAddDocument: (file: File, category: string) => Promise<void>;
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
+  isOpen: boolean
+  onOpenChange: (open: boolean) => void
+  onUploadSuccess?: () => void
 }
 
-const AddDocumentDialog: React.FC<AddDocumentDialogProps> = ({ 
-  onAddDocument, 
-  isOpen, 
-  onOpenChange 
+const AddDocumentDialog: React.FC<AddDocumentDialogProps> = ({
+  isOpen,
+  onOpenChange,
+  onUploadSuccess,
 }) => {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [fileCategory, setFileCategory] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [fileCategory, setFileCategory] = useState("")
+  const { uploadFile, isUploading } = useDynamicStorage()
 
   // Handle file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setSelectedFile(e.target.files[0]);
+      setSelectedFile(e.target.files[0])
     }
-  };
+  }
+
+  // Get file type icon
+  const getFileIcon = (fileType: string) => {
+    if (fileType.startsWith("image/")) return <Image className="h-4 w-4" />
+    if (fileType.startsWith("video/")) return <Video className="h-4 w-4" />
+    if (fileType.startsWith("audio/")) return <Music className="h-4 w-4" />
+    return <File className="h-4 w-4" />
+  }
 
   // Handle document upload
   const handleUpload = async () => {
     if (selectedFile && fileCategory) {
-      setIsUploading(true);
-      try {
-        await onAddDocument(selectedFile, fileCategory);
-        setSelectedFile(null);
-        setFileCategory('');
-        onOpenChange(false);
-      } finally {
-        setIsUploading(false);
+      const success = await uploadFile(selectedFile, fileCategory)
+      if (success) {
+        setSelectedFile(null)
+        setFileCategory("")
+        onOpenChange(false)
+        onUploadSuccess?.()
       }
     }
-  };
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Adicionar Novo Documento</DialogTitle>
+          <DialogTitle>Adicionar Arquivo</DialogTitle>
           <DialogDescription>
-            Selecione um arquivo do seu computador para adicionar à base de conhecimento.
+            Envie documentos, imagens, vídeos ou áudios para sua base de
+            conhecimento pessoal.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
@@ -66,6 +82,7 @@ const AddDocumentDialog: React.FC<AddDocumentDialogProps> = ({
               type="file"
               id="file-upload"
               className="hidden"
+              accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
               onChange={handleFileChange}
             />
             <label
@@ -77,23 +94,30 @@ const AddDocumentDialog: React.FC<AddDocumentDialogProps> = ({
                 Clique para selecionar ou arraste o arquivo aqui
               </p>
               <p className="text-xs text-gray-400 dark:text-gray-500">
-                PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX
+                📄 Documentos • 🖼️ Imagens • 🎥 Vídeos • 🎵 Áudios
+              </p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                Limite: 50MB por arquivo
               </p>
             </label>
           </div>
-          
+
           {selectedFile && (
             <Alert>
-              <FileText className="h-4 w-4" />
+              {getFileIcon(selectedFile.type)}
               <AlertTitle>Arquivo selecionado</AlertTitle>
               <AlertDescription>
-                {selectedFile.name} ({(selectedFile.size / 1024).toFixed(0)} KB)
+                {selectedFile.name} (
+                {(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
               </AlertDescription>
             </Alert>
           )}
-          
+
           <div>
-            <label htmlFor="category" className="block text-sm font-medium mb-1">
+            <label
+              htmlFor="category"
+              className="block text-sm font-medium mb-1"
+            >
               Categoria
             </label>
             <Input
@@ -105,14 +129,14 @@ const AddDocumentDialog: React.FC<AddDocumentDialogProps> = ({
           </div>
         </div>
         <DialogFooter>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={isUploading}
           >
             Cancelar
           </Button>
-          <Button 
+          <Button
             onClick={handleUpload}
             disabled={!selectedFile || !fileCategory || isUploading}
           >
@@ -131,7 +155,7 @@ const AddDocumentDialog: React.FC<AddDocumentDialogProps> = ({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-};
+  )
+}
 
-export default AddDocumentDialog;
+export default AddDocumentDialog
