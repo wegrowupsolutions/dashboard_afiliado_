@@ -288,7 +288,7 @@ const Config = () => {
       try {
         const userIdString = user.id.toString()
         const { data, error } = await supabase
-          .from("cliente_config")
+          .from("dados_cliente")
           .select("prompt")
           .eq("cliente_id", userIdString)
           .single()
@@ -332,7 +332,7 @@ const Config = () => {
   const checkExistingPrompt = async () => {
     try {
       const { data, error } = await supabase
-        .from("cliente_config")
+        .from("dados_cliente")
         .select("id")
         .eq("cliente_id", user?.id)
         .single()
@@ -555,11 +555,11 @@ ${
       // Convert formData to structured prompt format
       const promptString = convertToPrompt(formData)
 
-      // Convert user ID to string to match cliente_config.cliente_id type
+      // Convert user ID to string to match dados_cliente.cliente_id type
       const userIdString = user?.id?.toString()
 
-      // Save/Update to cliente_config table in prompt field (allow updates)
-      const { error } = await supabase.from("cliente_config").upsert(
+      // Save/Update to dados_cliente table in prompt field (allow updates)
+      const { error } = await supabase.from("dados_cliente").upsert(
         {
           cliente_id: userIdString,
           prompt: promptString,
