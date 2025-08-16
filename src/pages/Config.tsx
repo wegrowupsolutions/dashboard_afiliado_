@@ -286,20 +286,19 @@ const Config = () => {
 
       setIsLoadingExistingData(true)
       try {
-        const userIdString = user.id.toString()
         const { data, error } = await supabase
-          .from("dados_cliente")
+          .from("dados_cliente" as any)
           .select("prompt")
-          .eq("cliente_id", userIdString)
+          .eq("id", user?.id)
           .single()
 
-        if (data && data.prompt && !error) {
+        if (data && (data as any).prompt && !error) {
           console.log("✅ Configuração existente encontrada, carregando...")
           setHasExistingPrompt(true)
           setIsEditMode(true)
 
           // Parse existing prompt to populate form fields
-          const parsedData = parsePromptToFormData(data.prompt)
+          const parsedData = parsePromptToFormData((data as any).prompt)
           if (parsedData) {
             setFormData(parsedData)
             console.log("📝 Dados carregados nos campos para edição")
@@ -332,9 +331,9 @@ const Config = () => {
   const checkExistingPrompt = async () => {
     try {
       const { data, error } = await supabase
-        .from("dados_cliente")
+        .from("dados_cliente" as any)
         .select("id")
-        .eq("cliente_id", user?.id)
+        .eq("id", user?.id)
         .single()
 
       if (error && error.code !== "PGRST116") {
@@ -543,53 +542,58 @@ ${
   const handleSaveConfig = async () => {
     setIsSaving(true)
     try {
-      // Validate all required fields first
-      const validation = validateRequiredFields()
-      if (!validation.isValid) {
-        setMissingField(validation.missingField)
-        setShowValidationModal(true)
-        setIsSaving(false)
-        return
+      const promptString = convertToPrompt(formData)
+      
+      console.log('User ID:', user?.id)
+      console.log('Prompt:', promptString.substring(0, 100))
+      
+      // Primeiro, verificar se já existe um registro para este usuário
+      const { data: existingData, error: checkError } = await supabase
+        .from("dados_cliente" as any)
+        .select("id")
+        .eq("id", user?.id)
+        .single()
+
+      let result
+      if (existingData) {
+        // Atualizar registro existente
+        console.log('Atualizando registro existente...')
+        result = await supabase
+          .from("dados_cliente" as any)
+          .update({ prompt: promptString })
+          .eq("id", user?.id)
+      } else {
+        // Inserir novo registro
+        console.log('Inserindo novo registro...')
+        result = await supabase
+          .from("dados_cliente" as any)
+          .insert([{
+            id: user?.id, // Usar o ID do usuário diretamente
+            prompt: promptString,
+            email: user?.email || 'sem-email@exemplo.com' // Campo obrigatório
+          }])
       }
 
-      // Convert formData to structured prompt format
-      const promptString = convertToPrompt(formData)
-
-      // Convert user ID to string to match dados_cliente.cliente_id type
-      const userIdString = user?.id?.toString()
-
-      // Save/Update to dados_cliente table in prompt field (allow updates)
-      const { error } = await supabase.from("dados_cliente").upsert(
-        {
-          cliente_id: userIdString,
-          prompt: promptString,
-        },
-        {
-          onConflict: "cliente_id",
-        }
-      )
-
+      const { data, error } = result
+      
       if (error) {
+        console.error('Supabase error:', error)
+        console.error('Error details:', JSON.stringify(error, null, 2))
         throw error
       }
-
-      console.log("Configuration saved successfully")
-
-      // Show success toast
+      
+      console.log('Sucesso:', data)
+      
       toast({
-        title: isEditMode
-          ? "✅ Configuração atualizada!"
-          : "✨ Configuração criada!",
-        description: isEditMode
-          ? "Suas alterações foram salvas com sucesso."
-          : "Seu prompt foi criado e salvo com sucesso.",
+        title: "✅ Configuração salva!",
+        description: "Seu prompt foi salvo com sucesso.",
         variant: "default",
       })
     } catch (error) {
       console.error("Error saving configuration:", error)
       toast({
         title: "Erro ao salvar",
-        description: "Não foi possível salvar a configuração. Tente novamente.",
+        description: "Não foi possível salvar a configuração.",
         variant: "destructive",
       })
     } finally {

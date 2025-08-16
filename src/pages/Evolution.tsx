@@ -44,6 +44,10 @@ const Evolution = () => {
   const retryCountRef = useRef<number>(0)
   const maxRetries = 3
 
+  // API da Evolution para logout e delete da instância
+  const EVOLUTION_API_BASE = "https://evolution.serverwegrowup.com.br"
+  const EVOLUTION_API_KEY = "066327121bd64f8356c26e9edfa1799d"
+
   useEffect(() => {
     return () => {
       if (statusCheckIntervalRef.current !== null) {
@@ -585,6 +589,174 @@ const Evolution = () => {
     }
   }
 
+  const handleDeleteInstance = async () => {
+    try {
+      setIsLoading(true)
+      console.log("🗑️ Iniciando processo de deleção da instância...")
+
+      // 1. Primeiro buscar o nome real da instância no Supabase
+      console.log("🔍 Buscando nome da instância no Supabase...")
+      const searchId = user?.cliente_id || user?.id
+      
+      if (!searchId) {
+        console.error("❌ Nenhum ID de usuário disponível")
+        toast({
+          title: "Erro",
+          description: "Usuário não autenticado. Faça login novamente.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const { data: instanceData, error: instanceError } = await supabase
+        .from("dados_cliente")
+        .select("evo_instance")
+        .eq("id", searchId)
+        .single()
+
+      if (instanceError || !instanceData?.evo_instance) {
+        console.error("❌ Erro ao buscar instância:", instanceError)
+        console.log("📊 Dados da instância:", instanceData)
+        toast({
+          title: "Erro",
+          description: "Não foi possível encontrar a instância para deletar.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const realInstanceName = instanceData.evo_instance
+      console.log("✅ Nome real da instância encontrado:", realInstanceName)
+
+             // 2. Fazer logout da instância Evolution usando a API oficial
+       console.log("📤 Fazendo logout da instância Evolution...")
+       console.log("🗑️ Deletando instância:", realInstanceName)
+       
+       const logoutResponse = await fetch(`https://evolution.serverwegrowup.com.br/instance/logout/${realInstanceName}`, {
+         method: "DELETE",
+         headers: {
+           "apikey": "066327121bd64f8356c26e9edfa1799d"
+         }
+       })
+
+       // 3. Deletar completamente a instância no Evolution
+       console.log("🗑️ Deletando instância completamente no Evolution...")
+       const deleteResponse = await fetch(`https://evolution.serverwegrowup.com.br/instance/delete/${realInstanceName}`, {
+         method: "DELETE",
+         headers: {
+           "apikey": "066327121bd64f8356c26e9edfa1799d"
+         }
+       })
+
+             console.log("📥 Resposta do logout:", {
+         status: logoutResponse.status,
+         statusText: logoutResponse.statusText,
+         ok: logoutResponse.ok
+       })
+
+       console.log("📥 Resposta do delete:", {
+         status: deleteResponse.status,
+         statusText: deleteResponse.statusText,
+         ok: deleteResponse.ok
+       })
+
+             if (!logoutResponse.ok) {
+         console.warn("⚠️ Logout não foi bem-sucedido, mas continuando...")
+         console.warn("Status:", logoutResponse.status, "StatusText:", logoutResponse.statusText)
+         
+         // Tentar ler o corpo da resposta para debug
+         try {
+           const errorText = await logoutResponse.text()
+           console.warn("📄 Corpo da resposta de erro (logout):", errorText)
+         } catch (e) {
+           console.warn("❌ Não foi possível ler corpo da resposta (logout)")
+         }
+       } else {
+         console.log("✅ Logout realizado com sucesso")
+         
+         // Tentar ler o corpo da resposta para debug
+         try {
+           const successText = await logoutResponse.text()
+           console.log("📄 Corpo da resposta de sucesso (logout):", successText)
+         } catch (e) {
+           console.log("✅ Resposta de sucesso (logout) - sem corpo")
+         }
+       }
+
+       if (!deleteResponse.ok) {
+         console.warn("⚠️ Delete não foi bem-sucedido, mas continuando...")
+         console.warn("Status:", deleteResponse.status, "StatusText:", deleteResponse.statusText)
+         
+         // Tentar ler o corpo da resposta para debug
+         try {
+           const errorText = await deleteResponse.text()
+           console.warn("📄 Corpo da resposta de erro (delete):", errorText)
+         } catch (e) {
+           console.warn("❌ Não foi possível ler corpo da resposta (delete)")
+         }
+       } else {
+         console.log("✅ Delete realizado com sucesso")
+         
+         // Tentar ler o corpo da resposta para debug
+         try {
+           const successText = await deleteResponse.text()
+           console.log("📄 Corpo da resposta de sucesso (delete):", successText)
+         } catch (e) {
+           console.log("✅ Resposta de sucesso (delete) - sem corpo")
+         }
+       }
+
+             // 4. Limpar dados do Supabase
+      console.log("🧹 Limpando dados do Supabase...")
+      
+             if (searchId) {
+         const { error: updateError } = await supabase
+           .from("dados_cliente")
+           .update({ 
+             evo_instance: null,
+             base_leads: null,
+             bucket_name: null,
+             evo_created_at: null,
+             evo_updated_at: null,
+             numero_evo: null
+           })
+           .eq("id", searchId)
+
+        if (updateError) {
+          console.error("❌ Erro ao limpar dados do Supabase:", updateError)
+        } else {
+          console.log("✅ Dados do Supabase limpos com sucesso")
+        }
+      }
+
+             // 5. Resetar estado local
+      setHasCreatedInstance(false)
+      setShowLimitModal(false)
+      setInstanceName("")
+      setQrCodeData(null)
+      setConfirmationStatus(null)
+
+             // 6. Mostrar mensagem de sucesso
+      toast({
+        title: "✅ Instância deletada!",
+        description: "Sua instância foi removida com sucesso. Agora você pode criar uma nova.",
+        variant: "default",
+      })
+
+      console.log("🎉 Processo de deleção concluído com sucesso!")
+
+    } catch (error) {
+      console.error("❌ Erro durante deleção da instância:", error)
+      toast({
+        title: "Erro ao deletar instância",
+        description: "Ocorreu um erro durante o processo. Tente novamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
       <header className="bg-[#1F2937] text-white shadow-md transition-colors duration-300">
@@ -850,6 +1022,13 @@ const Evolution = () => {
               className="bg-green-600 hover:bg-green-700 text-white border-2 border-green-400 hover:border-green-300"
             >
               Entendi
+            </Button>
+            <Button
+              onClick={() => handleDeleteInstance()}
+              variant="destructive"
+              className="bg-red-600 hover:bg-red-700 text-white border-2 border-red-400 hover:border-red-300"
+            >
+              Deletar Instância
             </Button>
           </div>
         </DialogContent>
