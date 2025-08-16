@@ -557,6 +557,7 @@ ${
 
       // Convert user ID to string to match cliente_config.cliente_id type
       const userIdString = user?.id?.toString()
+      const clienteId = (user as any)?.cliente_id?.toString?.() || userIdString
 
       // Save/Update to cliente_config table in prompt field (allow updates)
       const { error } = await supabase.from("cliente_config").upsert(
@@ -571,6 +572,21 @@ ${
 
       if (error) {
         throw error
+      }
+
+      // Additionally persist the prompt to dados_cliente for the logged-in user
+      const { error: dcError } = await (supabase as any)
+        .from("dados_cliente")
+        .upsert(
+          {
+            cliente_id: clienteId,
+            prompt: promptString,
+          },
+          { onConflict: "cliente_id" }
+        )
+
+      if (dcError) {
+        throw dcError
       }
 
       console.log("Configuration saved successfully")
