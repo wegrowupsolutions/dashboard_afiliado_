@@ -555,25 +555,21 @@ ${
       // Convert formData to structured prompt format
       const promptString = convertToPrompt(formData)
 
-      // Convert user ID to string to match cliente_config.cliente_id type
+      // Convert user ID to string
       const userIdString = user?.id?.toString()
+      const clienteId = (user as any)?.cliente_id?.toString?.() || userIdString
 
-      // Save/Update to cliente_config table in prompt field (allow updates)
-      const { error } = await supabase.from("cliente_config").upsert(
-        {
-          cliente_id: userIdString,
-          prompt: promptString,
-        },
-        {
-          onConflict: "cliente_id",
-        }
-      )
+      // Save prompt to dados_cliente for the logged-in user
+      const { error: dcError } = await (supabase as any)
+        .from("dados_cliente")
+        .update({ prompt: promptString })
+        .eq("cliente_id", clienteId)
 
-      if (error) {
-        throw error
+      if (dcError) {
+        throw dcError
       }
 
-      console.log("Configuration saved successfully")
+      console.log("Configuration saved successfully (dados_cliente.prompt)")
 
       // Show success toast
       toast({
