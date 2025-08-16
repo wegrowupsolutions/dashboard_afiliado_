@@ -1,8 +1,8 @@
 -- Ver dados de cliente_config com datas para mapear corretamente
 SELECT 
-    'CLIENTE_CONFIG' as tabela,
+    'dados_cliente' as tabela,
     cliente_id,
     evo_instance,
     created_at
-FROM cliente_config
+FROM dados_cliente
 ORDER BY created_at;
