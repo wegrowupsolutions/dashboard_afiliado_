@@ -1,7 +1,7 @@
-import React, { useEffect } from "react"
-import { LineChart, Users, Smartphone, Bot } from "lucide-react"
-import { useUserSpecificData } from "@/hooks/useUserSpecificData"
+import React from "react"
+import { LineChart, Bot } from "lucide-react"
 import { useDashboardRealtime } from "@/hooks/useDashboardRealtime"
+import { useUserLeads } from "@/hooks/useUserLeads"
 // Import components
 import DashboardHeader from "@/components/metrics/DashboardHeader"
 import StatCard from "@/components/metrics/StatCard"
@@ -10,17 +10,13 @@ import StatCard from "@/components/metrics/StatCard"
 // Temporarily commented - Funil de Leads functionality
 // import ServicesBarChart from "@/components/metrics/ServicesBarChart"
 import RecentClientsTable from "@/components/metrics/RecentClientsTable"
+import UserLeadsTable from "@/components/metrics/UserLeadsTable"
 
 const MetricsDashboard = () => {
-  const { stats, loading, refetchStats } = useUserSpecificData()
+  const { leads, loading: leadsLoading, error: leadsError, totalLeads } = useUserLeads()
 
   // Initialize real-time updates for the metrics dashboard
   useDashboardRealtime()
-
-  // Fetch data when component mounts
-  useEffect(() => {
-    refetchStats()
-  }, [refetchStats])
 
   // Temporarily commented - Funil de Leads functionality
   /*
@@ -71,18 +67,15 @@ const MetricsDashboard = () => {
   */
 
   // Use real client data from the database
-  const recentClientsData =
-    stats.recentClients?.length > 0
-      ? stats.recentClients
-      : [
-          {
-            id: 1,
-            name: "Carregando...",
-            phone: "...",
-            pets: 0,
-            lastVisit: "...",
-          },
-        ]
+  const recentClientsData = [
+    {
+      id: 1,
+      name: "Carregando...",
+      phone: "...",
+      pets: 0,
+      lastVisit: "...",
+    },
+  ]
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
@@ -102,14 +95,21 @@ const MetricsDashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <StatCard
             title="Total de Leads"
-            value={stats.totalLeads}
+            value={totalLeads}
             icon={<Bot />}
-            trend={`Média de ${(
-              stats.totalLeads / (stats.totalClients || 1)
-            ).toFixed(1)} leads`}
-            loading={loading}
+            trend={`${leads.length > 0 ? 'Leads ativos' : 'Nenhum lead ainda'}`}
+            loading={leadsLoading}
             iconBgClass="bg-green-100 dark:bg-green-900/30"
             iconTextClass="text-green-600 dark:text-green-400"
+          />
+        </div>
+
+        {/* Tabela de Leads do Usuário */}
+        <div className="w-full mb-8">
+          <UserLeadsTable 
+            leads={leads} 
+            loading={leadsLoading} 
+            error={leadsError} 
           />
         </div>
 
@@ -117,7 +117,7 @@ const MetricsDashboard = () => {
         <div className="w-full">
           {/* Temporarily commented - Funil de Leads */}
           {/* <ServicesBarChart data={petServicesData} /> */}
-          <RecentClientsTable clients={recentClientsData} loading={loading} />
+          <RecentClientsTable clients={recentClientsData} loading={false} />
         </div>
       </main>
     </div>
