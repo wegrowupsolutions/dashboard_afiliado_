@@ -1,381 +1,217 @@
-// 🚀 PONTO DE RESTAURAÇÃO PERFEITO - INDEX LOGIN
-// Data: $(date)
-// Status: APROVADO PELO USUÁRIO
-// Descrição: Layout perfeito com proporções ideais para tela de login
-//
-// Características:
-// ✅ Container: max-w-lg (tamanho ideal)
-// ✅ Padding: px-8 py-8 (espaçamento equilibrado)
-// ✅ Campos: h-12, text-base (altura e texto proporcionais)
-// ✅ Ícones: h-5 w-5 (tamanho adequado)
-// ✅ Botão: py-3 px-4, text-base (proporção perfeita)
-// ✅ Seção lembrar/esqueceu: text-sm, espaçamento ajustado
-// ✅ Header: Bot h-12 w-12, título text-3xl
-// ✅ Layout responsivo e bem dimensionado
-//
-// Para restaurar: copie o conteúdo abaixo para src/pages/Index.tsx
-
-import React, { useState, useEffect } from "react"
+import React, { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { toast } from "sonner"
-import { Input } from "@/components/ui/input"
-import {
-  Bot,
-  Mail,
-  Lock,
-  Eye,
-  EyeOff,
-  Brain,
-  Cpu,
-  Zap,
-  Shield,
-  Network,
-  Binary,
-} from "lucide-react"
-import { z } from "zod"
 import { useAuth } from "@/hooks/useAuth"
-import { ThemeToggle } from "@/components/ThemeToggle"
-
-const loginSchema = z.object({
-  email: z.string().email({ message: "Email inválido" }),
-  password: z
-    .string()
-    .min(6, { message: "Senha deve ter pelo menos 6 caracteres" }),
-})
+import { useToast } from "@/hooks/use-toast"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Mail, Lock, ArrowRight, User, Phone, Bot, Eye, EyeOff, Zap, Cpu, Brain, Shield, Network, Moon } from "lucide-react"
+import SignupForm from "@/components/SignupForm"
 
 const Index = () => {
-  const navigate = useNavigate()
-  const { signIn, user, isLoading: authLoading } = useAuth()
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLogin, setIsLogin] = useState(true)
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [name, setName] = useState("")
+  const [phone, setPhone] = useState("")
+  const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-  })
-  const [errors, setErrors] = useState<{
-    email?: string
-    password?: string
-  }>({})
-
-  const [isPageLoaded, setIsPageLoaded] = useState(false)
-
-  useEffect(() => {
-    setIsPageLoaded(true)
-  }, [])
-
-  // 🔧 CORREÇÃO: Aguardar isLoading antes de redirecionar
-  useEffect(() => {
-    if (!authLoading && user) {
-      console.log("✅ Usuário autenticado - redirecionando para dashboard")
-      navigate("/dashboard")
-    }
-  }, [user, authLoading, navigate])
-
-  const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword)
-  }
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }))
-
-    if (errors[name as keyof typeof errors]) {
-      setErrors((prev) => ({
-        ...prev,
-        [name]: undefined,
-      }))
-    }
-  }
-
-  const validateForm = () => {
-    try {
-      loginSchema.parse(formData)
-      setErrors({})
-      return true
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        const newErrors: {
-          email?: string
-          password?: string
-        } = {}
-
-        error.errors.forEach((err) => {
-          if (err.path[0]) {
-            newErrors[err.path[0] as keyof typeof newErrors] = err.message
-          }
-        })
-
-        setErrors(newErrors)
-      }
-      return false
-    }
-  }
+  const [rememberMe, setRememberMe] = useState(false)
+  
+  const { signIn, signUp } = useAuth()
+  const { toast } = useToast()
+  const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (!validateForm()) return
-
-    setIsLoading(true)
+    setLoading(true)
 
     try {
-      const { error } = await signIn(formData.email, formData.password)
-
-      if (error) {
-        console.error("Login error:", error)
-        toast.error(error.message || "Erro ao fazer login. Tente novamente.")
+      if (isLogin) {
+        const result = await signIn(email, password)
+        if (result.success) {
+          toast({
+            title: "Sucesso!",
+            description: "Login realizado com sucesso.",
+          })
+          navigate("/dashboard")
+        } else {
+          toast({
+            title: "Erro",
+            description: result.error || "Credenciais inválidas.",
+            variant: "destructive",
+          })
+        }
       } else {
-        toast.success("Login realizado com sucesso!")
-        // Navigate is handled by the auth state change in AuthContext
+        const result = await signUp(email, password, name)
+        if (result.success) {
+          toast({
+            title: "Sucesso!",
+            description: "Conta criada com sucesso. Verifique seu email.",
+          })
+          setIsLogin(true)
+        } else {
+          toast({
+            title: "Erro",
+            description: result.error || "Ocorreu um erro. Tente novamente.",
+            variant: "destructive",
+          })
+        }
       }
-    } catch (error) {
-      console.error("Unexpected error:", error)
-      toast.error("Erro ao fazer login. Tente novamente.")
+    } catch (error: any) {
+      console.error('❌ Erro na autenticação:', error)
+      toast({
+        title: "Erro",
+        description: error.message || "Ocorreu um erro. Tente novamente.",
+        variant: "destructive",
+      })
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
-  if (authLoading) {
+  if (!isLogin) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-teal-900">
-        <div className="h-16 w-16 border-4 border-t-transparent border-cyan-400 rounded-full animate-spin"></div>
+      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 flex items-center justify-center p-4">
+        <SignupForm onSuccess={() => setIsLogin(true)} />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-teal-900">
-      {/* Theme Toggle */}
-      <div className="absolute top-4 right-4 z-30">
-        <ThemeToggle />
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-green-900 relative overflow-hidden">
+      {/* Background Grid Pattern */}
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(0,255,255,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(0,255,255,0.1)_1px,transparent_1px)] bg-[size:50px_50px] opacity-20"></div>
+      
+      {/* Floating Tech Icons */}
+      <div className="absolute inset-0 pointer-events-none">
+        <Zap className="absolute top-20 left-20 text-cyan-400/30 animate-pulse" size={40} />
+        <Cpu className="absolute top-40 right-32 text-green-400/30 animate-pulse delay-1000" size={35} />
+        <Brain className="absolute bottom-32 left-32 text-blue-400/30 animate-pulse delay-2000" size={45} />
+        <Shield className="absolute bottom-40 right-20 text-purple-400/30 animate-pulse delay-1500" size={38} />
+        <Network className="absolute top-1/2 left-1/4 text-yellow-400/30 animate-pulse delay-500" size={42} />
       </div>
 
-      {/* Animated Background Elements */}
-      <div className="absolute inset-0 z-0">
-        {/* Circuit pattern overlay */}
-        <div className="absolute inset-0 opacity-10">
-          <svg
-            className="w-full h-full"
-            viewBox="0 0 100 100"
-            preserveAspectRatio="none"
-          >
-            <defs>
-              <pattern
-                id="circuit"
-                x="0"
-                y="0"
-                width="20"
-                height="20"
-                patternUnits="userSpaceOnUse"
-              >
-                <path
-                  d="M 0 10 L 20 10 M 10 0 L 10 20"
-                  stroke="currentColor"
-                  strokeWidth="0.5"
-                  fill="none"
-                  className="text-cyan-400"
-                />
-                <circle
-                  cx="10"
-                  cy="10"
-                  r="1"
-                  fill="currentColor"
-                  className="text-cyan-400"
-                />
-              </pattern>
-            </defs>
-            <rect width="100%" height="100%" fill="url(#circuit)" />
-          </svg>
-        </div>
+      {/* Glow Effects */}
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-pulse"></div>
+      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-green-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
 
-        {/* Floating tech elements */}
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-          {/* Glowing orbs */}
-          <div className="absolute top-[15%] left-[10%] w-32 h-32 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 opacity-20 animate-pulse blur-xl"></div>
-          <div
-            className="absolute bottom-[25%] right-[15%] w-40 h-40 rounded-full bg-gradient-to-r from-teal-400 to-cyan-500 opacity-15 animate-pulse blur-xl"
-            style={{ animationDelay: "2s" }}
-          ></div>
-          <div
-            className="absolute top-[45%] right-[25%] w-24 h-24 rounded-full bg-gradient-to-r from-blue-400 to-teal-500 opacity-25 animate-pulse blur-xl"
-            style={{ animationDelay: "4s" }}
-          ></div>
-
-          {/* Tech icons with glow effect */}
-          <Brain
-            className="absolute top-[20%] right-[30%] w-16 h-16 text-cyan-400 opacity-30 animate-float drop-shadow-glow"
-            style={{ animationDelay: "1s" }}
-          />
-          <Cpu
-            className="absolute bottom-[35%] left-[20%] w-20 h-20 text-teal-400 opacity-25 animate-float drop-shadow-glow"
-            style={{ animationDelay: "3s" }}
-          />
-          <Network
-            className="absolute top-[65%] right-[15%] w-14 h-14 text-blue-400 opacity-30 animate-pulse drop-shadow-glow"
-            style={{ animationDelay: "0.5s" }}
-          />
-          <Zap
-            className="absolute top-[30%] left-[25%] w-12 h-12 text-cyan-300 opacity-35 animate-bounce drop-shadow-glow"
-            style={{ animationDelay: "2.5s" }}
-          />
-          <Shield
-            className="absolute bottom-[20%] right-[35%] w-18 h-18 text-teal-300 opacity-25 animate-pulse drop-shadow-glow"
-            style={{ animationDelay: "1.8s" }}
-          />
-          <Binary
-            className="absolute top-[75%] left-[35%] w-10 h-10 text-blue-300 opacity-20 animate-float drop-shadow-glow"
-            style={{ animationDelay: "4.2s" }}
-          />
-        </div>
-
-        {/* Grid overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-transparent via-slate-900/30 to-transparent"></div>
+      {/* Theme Toggle */}
+      <div className="absolute top-6 right-6">
+        <button className="p-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all duration-300">
+          <Moon className="w-5 h-5 text-white" />
+        </button>
       </div>
 
       {/* Main Content */}
-      <div
-        className={`m-auto z-20 px-8 py-8 transition-all duration-700 transform ${
-          isPageLoaded
-            ? "translate-y-0 opacity-100"
-            : "translate-y-10 opacity-0"
-        }`}
-      >
-        <div className="w-full max-w-lg mx-auto">
-          <form
-            onSubmit={handleSubmit}
-            className="relative backdrop-blur-xl bg-slate-900/40 border border-cyan-400/20 rounded-2xl px-8 py-8 space-y-6 shadow-2xl shadow-cyan-500/10 animate-fade-in"
-          >
-            {/* Header with AI theme */}
-            <div
-              className="text-center mb-6 animate-slide-up"
-              style={{ animationDelay: "0.2s" }}
-            >
-              <div className="flex items-center justify-center mb-4">
+      <div className="relative z-10 flex items-center justify-center min-h-screen p-4">
+        <Card className="w-full max-w-md bg-gray-900/80 backdrop-blur-xl border-cyan-500/30 shadow-2xl shadow-cyan-500/20">
+          <CardHeader className="text-center pb-6">
+            <div className="flex items-center justify-center mb-4">
+              <div className="w-12 h-12 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-xl flex items-center justify-center mr-3 shadow-lg shadow-cyan-500/30">
+                <Bot className="w-7 h-7 text-white" />
+              </div>
+              <div className="text-left">
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+                  Afiliado IA
+                </h1>
+                <p className="text-sm text-gray-300">
+                  Sistema Inteligente de Automação
+                </p>
+              </div>
+            </div>
+          </CardHeader>
+          
+          <CardContent className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Email Field */}
+              <div className="space-y-2">
                 <div className="relative">
-                  <Bot className="h-12 w-12 text-cyan-400 drop-shadow-glow animate-pulse" />
-                  <div className="absolute inset-0 h-12 w-12 bg-cyan-400/20 rounded-full blur-md"></div>
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-12 h-12 bg-gray-800/50 border-gray-600/50 text-white placeholder-gray-400 focus:border-cyan-400 focus:ring-cyan-400/20 transition-all duration-300"
+                    placeholder="Email"
+                    required
+                  />
                 </div>
               </div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 via-teal-300 to-blue-400 bg-clip-text text-transparent mb-3">
-                Afiliado IA
-              </h1>
-              <p className="text-slate-300 text-sm">
-                Sistema Inteligente de Automação
-              </p>
-              <div className="mt-4 h-px bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent"></div>
-            </div>
 
-            <div
-              className="space-y-4 animate-slide-up"
-              style={{ animationDelay: "0.4s" }}
-            >
-              <div className="relative group">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-5 w-5 group-hover:text-cyan-400 transition-colors duration-300" />
-                <Input
-                  type="email"
-                  name="email"
-                  placeholder="Email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className={`pl-10 pr-4 h-12 bg-slate-800/50 border-slate-600/50 text-white placeholder-slate-400 rounded-lg transition-all duration-300 hover:border-cyan-400/50 focus:border-cyan-400 focus:bg-slate-800/70 text-base w-full ${
-                    errors.email ? "border-red-400" : ""
-                  }`}
-                />
-                {errors.email && (
-                  <p className="text-red-400 text-sm mt-1">{errors.email}</p>
-                )}
+              {/* Password Field */}
+              <div className="space-y-2">
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-12 h-12 bg-gray-800/50 border-gray-600/50 text-white placeholder-gray-400 focus:border-cyan-400 focus:ring-cyan-400/20 transition-all duration-300"
+                    placeholder="Senha"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
               </div>
 
-              <div className="relative group">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-5 w-5 group-hover:text-cyan-400 transition-colors duration-300" />
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  name="password"
-                  placeholder="Senha"
-                  value={formData.password}
-                  onChange={handleChange}
-                  className={`pl-10 pr-10 h-12 bg-slate-800/50 border-slate-600/50 text-white placeholder-slate-400 rounded-lg transition-all duration-300 hover:border-cyan-400/50 focus:border-cyan-400 focus:bg-slate-800/70 text-base w-full ${
-                    errors.password ? "border-red-400" : ""
-                  }`}
-                />
+              {/* Remember Me & Forgot Password */}
+              <div className="flex items-center justify-between">
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="w-4 h-4 text-cyan-500 bg-gray-800 border-gray-600 rounded focus:ring-cyan-400 focus:ring-2"
+                  />
+                  <span className="text-sm text-gray-300">Lembrar-me</span>
+                </label>
                 <button
                   type="button"
-                  onClick={togglePasswordVisibility}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4 hover:text-cyan-400 transition-colors duration-300"
+                  className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
                 >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5" />
-                  ) : (
-                    <Eye className="h-5 w-5" />
-                  )}
+                  Esqueceu a senha?
                 </button>
-                {errors.password && (
-                  <p className="text-red-400 text-sm mt-1">{errors.password}</p>
-                )}
               </div>
-            </div>
 
-            <div
-              className="flex items-center justify-between mt-4 animate-slide-up"
-              style={{ animationDelay: "0.5s" }}
-            >
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="remember"
-                  className="w-4 h-4 bg-slate-800 border-slate-600 rounded focus:ring-cyan-400 text-cyan-400"
-                />
-                <label
-                  htmlFor="remember"
-                  className="text-sm text-slate-300 hover:text-cyan-300 transition-colors duration-300 cursor-pointer"
-                >
-                  Lembrar-me
-                </label>
-              </div>
-              <a
-                href="#"
-                className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors duration-300 font-medium"
+              {/* Login Button */}
+              <Button
+                type="submit"
+                className="w-full h-12 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-semibold rounded-lg shadow-lg shadow-cyan-500/30 transition-all duration-300 transform hover:scale-105"
+                disabled={loading}
               >
-                Esqueceu a senha?
-              </a>
-            </div>
+                {loading ? (
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mx-auto"></div>
+                ) : (
+                  <>
+                    <Bot className="w-5 h-5 mr-2" />
+                    Acesso ao Sistema
+                  </>
+                )}
+              </Button>
+            </form>
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full relative overflow-hidden bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-slate-900 font-bold py-3 px-4 rounded-lg flex items-center justify-center transition-all duration-300 animate-slide-up shadow-lg shadow-cyan-500/25 hover:shadow-xl hover:shadow-cyan-500/30 group text-base"
-              style={{ animationDelay: "0.6s" }}
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              {isLoading ? (
-                <div className="h-4 w-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin mr-2"></div>
-              ) : (
-                <Bot className="mr-2 h-4 w-4" />
-              )}
-              {isLoading ? "Processando..." : "Acesso ao Sistema"}
-            </button>
-
-            {/* Tech decoration at bottom */}
-            <div className="mt-6 flex items-center justify-center space-x-4 opacity-30">
+            {/* Progress Dots */}
+            <div className="flex justify-center space-x-2">
               <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
-              <div
-                className="w-1 h-1 bg-teal-400 rounded-full animate-pulse"
-                style={{ animationDelay: "0.5s" }}
-              ></div>
-              <div
-                className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"
-                style={{ animationDelay: "1s" }}
-              ></div>
+              <div className="w-2 h-2 bg-gray-500 rounded-full animate-pulse delay-300"></div>
+              <div className="w-2 h-2 bg-gray-500 rounded-full animate-pulse delay-600"></div>
             </div>
-          </form>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
 }
 
 export default Index
+

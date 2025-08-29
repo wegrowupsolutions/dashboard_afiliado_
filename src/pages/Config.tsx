@@ -125,106 +125,116 @@ const Config = () => {
         return match ? match[1].trim() : ""
       }
 
-      // Extract basic fields
+      // Extract basic fields - CORRIGIDO para usar os mesmos títulos do convertToPrompt
       const parsedData = {
         specificScenario: extractSection(
           promptText,
-          "## Contexto Específico",
-          "Problema a Resolver"
+          "## Contexto",
+          "Problema a resolver"
         ),
         problemToSolve: extractSection(
           promptText,
-          "## Problema a Resolver",
-          "Resultado Esperado"
+          "Problema a resolver:",
+          "Resultado esperado:"
         ),
         expectedResult: extractSection(
           promptText,
-          "## Resultado Esperado",
-          "Audiência-Alvo"
+          "Resultado esperado:",
+          "Público-alvo:"
         ),
         targetAudience: extractSection(
           promptText,
-          "## Audiência-Alvo",
-          "Ambiente de Atuação"
+          "Público-alvo:",
+          "Ambiente:"
         ),
         environment: extractSection(
           promptText,
-          "## Ambiente de Atuação",
-          "Tom de Voz"
+          "Ambiente:",
+          "## Personalidade"
         ),
         toneOfVoice: extractSection(
           promptText,
-          "## Tom de Voz",
-          "Nível de Linguagem"
+          "- Tom de voz:",
+          "- Nível de linguagem:"
         ),
         languageLevel: extractSection(
           promptText,
-          "## Nível de Linguagem",
-          "Características de Personalidade"
+          "- Nível de linguagem:",
+          "- Características da personalidade:"
         ),
         personalityCharacteristics: extractSection(
           promptText,
-          "## Características de Personalidade",
-          "Conhecimento Específico"
+          "- Características da personalidade:",
+          "## Diretrizes"
         ),
         specificKnowledge: extractSection(
           promptText,
-          "## Conhecimento Específico",
-          "Políticas Importantes"
+          "### Conhecimento Específico",
+          "### Políticas Importantes"
         ),
         importantPolicies: extractSection(
           promptText,
-          "## Políticas Importantes",
-          "Limites de Ação"
+          "### Políticas Importantes",
+          "### Limites de Ação"
         ),
         actionLimits: extractSection(
           promptText,
-          "## Limites de Ação",
-          "Restrições Legais"
+          "### Limites de Ação",
+          "### Restrições Legais e Éticas"
         ),
         legalEthicalRestrictions: extractSection(
           promptText,
-          "## Restrições Legais",
-          "Procedimentos Obrigatórios"
+          "### Restrições Legais e Éticas",
+          "### Procedimentos Obrigatórios"
         ),
         mandatoryProcedures: extractSection(
           promptText,
           "### Procedimentos Obrigatórios",
-          "Estrutura da Conversa"
+          "## Estrutura da Conversa"
         ),
-        confidentialInformation: "", // This field might not be in existing prompts
+        confidentialInformation: "", // Campo não presente no prompt salvo
         conversationStepByStep: extractSection(
           promptText,
           "## Estrutura da Conversa",
-          "FAQ"
+          "## FAQ"
         ),
         frequentQuestions: extractSection(
           promptText,
           "## FAQ - Perguntas Frequentes",
-          "Exemplos de Uso"
+          "## Exemplos de Uso"
         ),
         practicalExamples: extractSection(
           promptText,
           "## Exemplos de Uso",
-          "Métricas de Sucesso"
+          "## Métricas de Sucesso"
         ),
         qualityIndicators: extractSection(
           promptText,
           "## Métricas de Sucesso",
-          "Métricas de Performance"
+          "### Métricas de Performance"
         ),
         performanceMetrics: extractSection(
           promptText,
           "### Métricas de Performance",
-          "Critérios de Avaliação"
+          "### Critérios de Avaliação"
         ),
         evaluationCriteria: extractSection(
           promptText,
           "### Critérios de Avaliação",
-          "Links de Promoção"
+          "## Links de Promoção"
         ),
-        promotionLinks: [{ url: "", isPrimary: true }], // We'll handle links separately if needed
+        promotionLinks: [{ url: "", isPrimary: true }], // Será tratado separadamente se necessário
       }
+
+      // Limpar campos vazios que podem ter sido extraídos incorretamente
+      Object.keys(parsedData).forEach(key => {
+        if (key !== 'promotionLinks' && typeof parsedData[key as keyof typeof parsedData] === 'string') {
+          const value = parsedData[key as keyof typeof parsedData] as string
+          if (value && value.includes('Descreva') || value.includes('Defina') || value.includes('Adicione')) {
+            parsedData[key as keyof typeof parsedData] = ''
+          }
+        }
+      })
 
       return parsedData
     } catch (error) {

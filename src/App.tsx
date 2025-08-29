@@ -1,48 +1,41 @@
-import { Toaster } from "@/components/ui/toaster"
-import { Toaster as Sonner } from "@/components/ui/sonner"
-import { TooltipProvider } from "@/components/ui/tooltip"
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { BrowserRouter, Routes, Route } from "react-router-dom"
-import Index from "./pages/Index"
-import Dashboard from "./pages/Dashboard"
-import MetricsDashboard from "./pages/MetricsDashboard"
-import ChatsDashboard from "./pages/ChatsDashboard"
-import KnowledgeManager from "./pages/KnowledgeManager"
-import ClientsDashboard from "./pages/ClientsDashboard"
-import Evolution from "./pages/Evolution"
-import Config from "./pages/Config"
-import NotFound from "./pages/NotFound"
+import React from "react"
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom"
 import { AuthProvider } from "./context/AuthProvider"
 import { ThemeProvider } from "./context/ThemeContext"
+import { Toaster } from "./components/ui/toaster"
+import Dashboard from "./pages/Dashboard"
+import ChatsDashboard from "./pages/ChatsDashboard"
+import ClientsDashboard from "./pages/ClientsDashboard"
+import MetricsDashboard from "./pages/MetricsDashboard"
+import KnowledgeManager from "./pages/KnowledgeManager"
+import Evolution from "./pages/Evolution"
+import Config from "./pages/Config"
+import Index from "./pages/Index"
+import NotFound from "./pages/NotFound"
 
-const queryClient = new QueryClient()
-
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider defaultTheme="dark">
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AuthProvider>
+function App() {
+  return (
+    <ThemeProvider>
+      <AuthProvider>
+        <Router>
+          <div className="App">
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/metrics" element={<MetricsDashboard />} />
               <Route path="/chats" element={<ChatsDashboard />} />
-              <Route path="/knowledge" element={<KnowledgeManager />} />
               <Route path="/clients" element={<ClientsDashboard />} />
+              <Route path="/metrics" element={<MetricsDashboard />} />
+              <Route path="/knowledge" element={<KnowledgeManager />} />
               <Route path="/evolution" element={<Evolution />} />
               <Route path="/config" element={<Config />} />
-
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </AuthProvider>
-        </BrowserRouter>
-      </TooltipProvider>
+            <Toaster />
+          </div>
+        </Router>
+      </AuthProvider>
     </ThemeProvider>
-  </QueryClientProvider>
-)
+  )
+}
 
 export default App

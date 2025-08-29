@@ -5,19 +5,49 @@ import ConversationList from './ConversationList';
 import ChatArea from './ChatArea';
 import ClientInfoPanel from './ClientInfoPanel';
 import { Conversation, ChatMessage } from '@/types/chat';
+import { Button } from '@/components/ui/button';
+import { RefreshCw } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Loader2 } from 'lucide-react';
+
+export interface ChatConversation {
+  id: string
+  remotejid: string
+  nome: string
+  timestamp: string
+  lastMessage: string
+  unreadCount: number
+  isPaused: boolean
+  pauseReason?: string
+  pauseExpiresAt?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ChatMessage {
+  id: string
+  remotejid: string
+  nome: string
+  message: string
+  timestamp: string
+  isFromUser: boolean
+  conversationId: string
+}
 
 interface ChatLayoutProps {
-  conversations: Conversation[];
+  conversations: ChatConversation[];
   selectedChat: string | null;
   setSelectedChat: (id: string) => void;
   isLoading: Record<string, boolean>;
   openPauseDialog: (phoneNumber: string, e: React.MouseEvent) => void;
-  startBot: (phoneNumber: string, e: React.MouseEvent) => void;
+  resumeConversation: (phoneNumber: string, e: React.MouseEvent) => void;
   loading: boolean;
   messages: ChatMessage[];
   handleNewMessage: (message: ChatMessage) => void;
-  selectedConversation?: Conversation;
+  selectedConversation?: ChatConversation;
   markConversationRead: (sessionId: string) => void;
+  onRefresh: () => void;
+  error: string | null;
 }
 
 const ChatLayout = ({
@@ -26,12 +56,14 @@ const ChatLayout = ({
   setSelectedChat,
   isLoading,
   openPauseDialog,
-  startBot,
+  resumeConversation,
   loading,
   messages,
   handleNewMessage,
   selectedConversation,
-  markConversationRead
+  markConversationRead,
+  onRefresh,
+  error
 }: ChatLayoutProps) => {
   
   const handleSelectChat = (id: string) => {
@@ -49,8 +81,9 @@ const ChatLayout = ({
           setSelectedChat={handleSelectChat}
           isLoading={isLoading}
           openPauseDialog={openPauseDialog}
-          startBot={startBot}
-          loading={loading}
+          resumeConversation={resumeConversation}
+          onRefresh={onRefresh}
+          error={error}
         />
       </ResizablePanel>
 

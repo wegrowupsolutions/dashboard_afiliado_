@@ -59,26 +59,78 @@ const Evolution = () => {
   // Check for existing instances when component loads
   useEffect(() => {
     const checkOnLoad = async () => {
-      console.log("🎯 Evolution component loaded - checking user and instances")
-      console.log("👤 Current user:", {
-        exists: !!user,
-        id: user?.id,
-        idType: typeof user?.id,
-        email: user?.email,
-        metadata: user?.user_metadata,
-      })
+      try {
+        console.log("🎯 Evolution component loaded - checking user and instances")
+        console.log(" Current user:", {
+          exists: !!user,
+          id: user?.id,
+          email: user?.email,
+        })
 
-      if (user?.cliente_id) {
-        console.log("✅ User authenticated, checking for existing instances...")
-        const hasInstance = await checkExistingInstance()
-        console.log("📋 Instance check result:", hasInstance)
-        setHasCreatedInstance(hasInstance)
-      } else {
-        console.log("❌ No user authenticated or missing cliente_id")
+        if (user?.id) {
+          console.log("✅ User authenticated, checking for existing instances...")
+          const hasInstance = await checkExistingInstance()
+          console.log("📋 Instance check result:", hasInstance)
+          setHasCreatedInstance(hasInstance)
+        } else {
+          console.log("❌ No user authenticated")
+        }
+      } catch (error) {
+        console.error("❌ Error in checkOnLoad:", error)
+        setHasCreatedInstance(false)
       }
     }
-    checkOnLoad()
-  }, [user?.cliente_id])
+    
+    if (user) {
+      checkOnLoad()
+    }
+  }, [user])
+
+  // Check if user already has an instance saved - CORRIGIDO para usar dados_cliente
+  const checkExistingInstance = async () => {
+    try {
+      console.log("🔍 Checking for existing instance")
+      
+      if (!user?.id) {
+        console.log("❌ No user ID available")
+        return false
+      }
+
+      // ✅ CORREÇÃO: Usar dados_cliente em vez de cliente_config
+      const { data, error } = await supabase
+        .from("dados_cliente")
+        .select("evo_instance")
+        .eq("id", user.id)
+        .single()
+
+      console.log(" Query result:", {
+        data,
+        error,
+        userId: user.id,
+        hasRecords: !!(data && data.length > 0),
+        evoInstanceValue: data?.evo_instance,
+      })
+
+      if (error) {
+        if (error.code === "PGRST116") {
+          console.log("✅ No existing instance found (normal for new users)")
+          return false
+        }
+        console.error("❌ Error checking existing instance:", error)
+        return false
+      }
+
+      // Verificar se evo_instance está preenchido
+      const hasEvoInstance = !!(data?.evo_instance && data.evo_instance.trim() !== "")
+      
+      console.log("✅ Instance check result:", hasEvoInstance)
+      return hasEvoInstance
+      
+    } catch (error) {
+      console.error("❌ Unexpected error checking existing instance:", error)
+      return false
+    }
+  }
 
   const checkConnectionStatus = async () => {
     try {
@@ -101,7 +153,6 @@ const Evolution = () => {
         console.log("Connection status response:", responseText)
 
         let responseData
-
         try {
           responseData = JSON.parse(responseText)
           console.log("Parsed response data:", responseData)
@@ -126,7 +177,7 @@ const Evolution = () => {
               statusCheckIntervalRef.current = null
             }
             setConfirmationStatus("confirmed")
-            retryCountRef.current = 0 // Reset retry counter on success
+            retryCountRef.current = 0
             toast({
               title: "Conexão estabelecida!",
               description: "Seu WhatsApp foi conectado com sucesso.",
@@ -145,14 +196,14 @@ const Evolution = () => {
                 statusCheckIntervalRef.current = null
               }
               setConfirmationStatus("failed")
-              retryCountRef.current = 0 // Reset retry counter
+              retryCountRef.current = 0
               toast({
                 title: "Falha na conexão",
                 description:
                   "Não foi possível conectar após várias tentativas. Obtendo novo QR code...",
                 variant: "destructive",
               })
-              updateQrCode() // Automatically get a new QR code
+              updateQrCode()
             } else {
               console.log(
                 `Retrying... (${retryCountRef.current}/${maxRetries})`
@@ -226,8 +277,7 @@ const Evolution = () => {
         const qrCodeUrl = URL.createObjectURL(blob)
         setQrCodeData(qrCodeUrl)
         setConfirmationStatus("waiting")
-        retryCountRef.current = 0 // Reset retry counter when getting new QR code
-        console.log("QR code updated successfully")
+        retryCountRef.current = 0
 
         if (statusCheckIntervalRef.current !== null) {
           clearInterval(statusCheckIntervalRef.current)
@@ -263,109 +313,6 @@ const Evolution = () => {
     }
   }
 
-  // Check if user already has an instance saved
-  const checkExistingInstance = async () => {
-    try {
-      console.log("🔍 SUPER DEBUG - Checking for existing instance")
-      console.log("👤 User object:", user)
-      console.log("🔑 User cliente_id:", user?.cliente_id)
-      console.log("🆔 User id:", user?.id)
-      console.log("📧 User email:", user?.email)
-      console.log("🔒 User exists:", !!user)
-
-      if (!user?.cliente_id) {
-        console.log("❌ ERRO CRÍTICO: No cliente_id available!")
-        console.log("🔄 Tentando usar user.id como fallback:", user?.id)
-
-        // FALLBACK: Se não tem cliente_id, usar user.id
-        if (!user?.id) {
-          console.log("❌ ERRO FATAL: Nem cliente_id nem id disponível!")
-          return false
-        }
-      }
-
-      // Use cliente_id ou user.id como fallback
-      const searchId = user.cliente_id || user.id
-      console.log("🔍 Usando ID para busca:", searchId)
-
-      // Use cliente_id (UUID) para verificar instâncias
-      const { data, error } = await supabase
-        .from("cliente_config")
-        .select("evo_instance, cliente_id")
-        .eq("cliente_id", searchId)
-        .limit(1)
-
-      console.log("📊 SUPER DEBUG Query result:", {
-        searchId,
-        data,
-        error,
-        hasInstance: !!data && data.length > 0,
-        dataLength: data?.length,
-        queryUsed: `SELECT evo_instance FROM cliente_config WHERE cliente_id = '${searchId}' AND evo_instance IS NOT NULL LIMIT 1`,
-      })
-
-      if (error) {
-        console.error("❌ Error checking existing instance:", error)
-        console.log("🔍 Error code:", error.code)
-        console.log("🔍 Error message:", error.message)
-
-        // If it's just a "no rows found" error, that's actually expected for new users
-        if (error.code === "PGRST116") {
-          console.log(
-            "✅ No existing instance found (this is normal for new users)"
-          )
-          return false
-        }
-        return false
-      }
-
-      // Verificar se existe registro E se evo_instance está preenchido
-      const hasRecord = !!(data && data.length > 0)
-
-      console.log("🔍 SUPER DEBUG - Data array:", data)
-      console.log("🔍 SUPER DEBUG - Data length:", data?.length)
-      console.log("🔍 SUPER DEBUG - First record:", data?.[0])
-      console.log("🔍 SUPER DEBUG - evo_instance raw:", data?.[0]?.evo_instance)
-      console.log(
-        "🔍 SUPER DEBUG - evo_instance type:",
-        typeof data?.[0]?.evo_instance
-      )
-      console.log(
-        "🔍 SUPER DEBUG - evo_instance length:",
-        data?.[0]?.evo_instance?.length
-      )
-      console.log(
-        "🔍 SUPER DEBUG - evo_instance after trim:",
-        data?.[0]?.evo_instance?.trim()
-      )
-
-      const evoInstanceValue = data?.[0]?.evo_instance
-      const hasEvoInstance =
-        hasRecord && evoInstanceValue && evoInstanceValue.trim() !== ""
-
-      console.log("✅ RESULTADO FINAL - Has record:", hasRecord)
-      console.log("✅ RESULTADO FINAL - Has evo_instance:", hasEvoInstance)
-      console.log("✅ RESULTADO FINAL - evo_instance value:", evoInstanceValue)
-
-      if (hasEvoInstance) {
-        console.log("📋 Existing instance details:", data[0])
-        console.log("🚨 DEVERIA BLOQUEAR CRIAÇÃO DE NOVA INSTÂNCIA!")
-        console.log("🚨 evo_instance preenchido:", data[0].evo_instance)
-      } else if (hasRecord) {
-        console.log(
-          "✅ Registro existe mas evo_instance vazio, pode criar nova"
-        )
-      } else {
-        console.log("✅ Nenhum registro encontrado, pode criar nova")
-      }
-
-      return hasEvoInstance
-    } catch (error) {
-      console.error("❌ Unexpected error checking existing instance:", error)
-      return false
-    }
-  }
-
   const handleCreateInstance = async () => {
     if (!instanceName.trim()) {
       toast({
@@ -376,28 +323,16 @@ const Evolution = () => {
       return
     }
 
-    // 🛡️ PRIMEIRA VERIFICAÇÃO: Estado local (mais rápida)
-    console.log("🔍 Step 1: Checking local state...")
-    console.log("📋 Local state hasCreatedInstance:", hasCreatedInstance)
-
+    // Verificar se já existe instância
     if (hasCreatedInstance) {
-      console.log(
-        "🚫 Instance already exists (local state) - showing limit modal"
-      )
+      console.log("🚫 Instance already exists - showing limit modal")
       setShowLimitModal(true)
       return
     }
 
-    // 🛡️ VERIFICAÇÃO SIMPLES: Check if evo_instance is filled
-    console.log("🔍 Checking evo_instance...")
-    console.log("👤 User object:", user)
-    console.log("📧 USUÁRIO TESTANDO:", user?.email || "EMAIL NÃO DEFINIDO")
-    console.log("🔑 User cliente_id:", user?.cliente_id)
-    console.log("🆔 User id:", user?.id)
-
     // Verificar se o usuário está autenticado
-    if (!user || (!user.cliente_id && !user.id)) {
-      console.error("❌ User not authenticated or missing cliente_id/id")
+    if (!user?.id) {
+      console.error("❌ User not authenticated")
       toast({
         title: "Erro de autenticação",
         description: "Usuário não está autenticado. Faça login novamente.",
@@ -406,80 +341,18 @@ const Evolution = () => {
       return
     }
 
-    const searchId = user.cliente_id || user.id
-    console.log("🔍 Using search ID:", searchId, "Type:", typeof searchId)
-
-    try {
-      // Buscar por AMBOS os IDs: cliente_id E user.id (para compatibilidade)
-      const { data, error } = await supabase
-        .from("cliente_config")
-        .select("evo_instance, cliente_id")
-        .in("cliente_id", [user.cliente_id, user.id])
-        .limit(1)
-
-      console.log("📊 Query result:", {
-        data,
-        error,
-        searchClienteId: user.cliente_id,
-        searchUserId: user.id,
-        userEmail: user.email,
-        dataLength: data?.length,
-        hasRecords: !!(data && data.length > 0),
-        evoInstanceValue: data?.[0]?.evo_instance,
-        evoInstanceExists: !!data?.[0]?.evo_instance,
-      })
-
-      if (error) {
-        console.error("❌ Error checking evo_instance:", error)
-      } else if (data && data.length > 0 && data[0].evo_instance) {
-        // SE TEM EVO_INSTANCE PREENCHIDO = BLOQUEAR
-        console.log(
-          "🚨 BLOQUEANDO: evo_instance já existe:",
-          data[0].evo_instance
-        )
-        setShowLimitModal(true)
-        return
-      }
-      console.log("✅ evo_instance vazio - permitindo criação")
-    } catch (error) {
-      console.error("❌ Error in evo_instance check:", error)
-    }
-
     setIsLoading(true)
     setQrCodeData(null)
     setConfirmationStatus(null)
-    retryCountRef.current = 0 // Reset retry counter for new instance creation
+    retryCountRef.current = 0
 
     try {
       console.log("🚀 Creating instance with name:", instanceName)
 
-      // Validate user authentication
-      if (!user || !user.id) {
-        console.error("❌ User not authenticated or missing ID")
-        toast({
-          title: "Erro de autenticação",
-          description: "Usuário não está autenticado. Faça login novamente.",
-          variant: "destructive",
-        })
-        return
-      }
-
-      const userIdString = user.id.toString()
-      console.log("👤 User authentication details:", {
-        userExists: !!user,
-        userId: user.id,
-        userIdType: typeof user.id,
-        userIdString: userIdString,
-        userEmail: user.email,
-        userMetadata: user.user_metadata,
-      })
-
-      // Send user data to backend so it can generate cliente_id and create database entries
       const requestData = {
         instanceName: instanceName.trim(),
         user_data: {
-          id: user.id, // UUID
-          cliente_id: user.cliente_id, // UUID para relacionamentos
+          id: user.id,
           email: user.email,
           name: user.user_metadata?.name,
           phone: user.user_metadata?.phone,
@@ -487,7 +360,6 @@ const Evolution = () => {
       }
 
       console.log("📤 Sending data to backend:", requestData)
-      console.log("📤 JSON payload:", JSON.stringify(requestData, null, 2))
 
       const response = await fetch(
         "https://webhook.serverwegrowup.com.br/webhook/instanciaevolution",
@@ -504,10 +376,8 @@ const Evolution = () => {
         status: response.status,
         statusText: response.statusText,
         ok: response.ok,
-        headers: Object.fromEntries(response.headers.entries()),
       })
 
-      // Check if response is successful
       if (response.ok) {
         const blob = await response.blob()
         console.log("Received blob content type:", blob.type)
@@ -525,24 +395,13 @@ const Evolution = () => {
           checkConnectionStatus()
         }, 10000)
 
-        // Backend handles database creation with client_id generation
-        console.log(
-          "⏳ Backend processará e criará configuração com cliente_id..."
-        )
-
-        // Set local state to prevent multiple creation attempts
         setHasCreatedInstance(true)
-
-        console.log(
-          "✅ Instância criada no Evolution, backend gerenciará banco de dados"
-        )
 
         toast({
           title: "Instância criada!",
           description: "Escaneie o QR code para conectar seu WhatsApp.",
         })
       } else {
-        // Handle error response
         const errorText = await response.text()
         console.error("❌ Backend returned error:", {
           status: response.status,
@@ -575,14 +434,14 @@ const Evolution = () => {
     setIsLoading(true)
     setQrCodeData(null)
     setConfirmationStatus(null)
-    retryCountRef.current = 0 // Reset retry counter
+    retryCountRef.current = 0
     handleCreateInstance()
   }
 
   const resetQrCode = () => {
     setQrCodeData(null)
     setConfirmationStatus(null)
-    retryCountRef.current = 0 // Reset retry counter
+    retryCountRef.current = 0
     if (statusCheckIntervalRef.current !== null) {
       clearInterval(statusCheckIntervalRef.current)
       statusCheckIntervalRef.current = null
@@ -594,11 +453,8 @@ const Evolution = () => {
       setIsLoading(true)
       console.log("🗑️ Iniciando processo de deleção da instância...")
 
-      // 1. Primeiro buscar o nome real da instância no Supabase
-      console.log("🔍 Buscando nome da instância no Supabase...")
-      const searchId = user?.cliente_id || user?.id
-      
-      if (!searchId) {
+      // Buscar o nome da instância no Supabase
+      if (!user?.id) {
         console.error("❌ Nenhum ID de usuário disponível")
         toast({
           title: "Erro",
@@ -611,12 +467,11 @@ const Evolution = () => {
       const { data: instanceData, error: instanceError } = await supabase
         .from("dados_cliente")
         .select("evo_instance")
-        .eq("id", searchId)
+        .eq("id", user.id)
         .single()
 
       if (instanceError || !instanceData?.evo_instance) {
         console.error("❌ Erro ao buscar instância:", instanceError)
-        console.log("📊 Dados da instância:", instanceData)
         toast({
           title: "Erro",
           description: "Não foi possível encontrar a instância para deletar.",
@@ -628,115 +483,61 @@ const Evolution = () => {
       const realInstanceName = instanceData.evo_instance
       console.log("✅ Nome real da instância encontrado:", realInstanceName)
 
-             // 2. Fazer logout da instância Evolution usando a API oficial
-       console.log("📤 Fazendo logout da instância Evolution...")
-       console.log("🗑️ Deletando instância:", realInstanceName)
-       
-       const logoutResponse = await fetch(`https://evolution.serverwegrowup.com.br/instance/logout/${realInstanceName}`, {
-         method: "DELETE",
-         headers: {
-           "apikey": "066327121bd64f8356c26e9edfa1799d"
-         }
-       })
-
-       // 3. Deletar completamente a instância no Evolution
-       console.log("🗑️ Deletando instância completamente no Evolution...")
-       const deleteResponse = await fetch(`https://evolution.serverwegrowup.com.br/instance/delete/${realInstanceName}`, {
-         method: "DELETE",
-         headers: {
-           "apikey": "066327121bd64f8356c26e9edfa1799d"
-         }
-       })
-
-             console.log("📥 Resposta do logout:", {
-         status: logoutResponse.status,
-         statusText: logoutResponse.statusText,
-         ok: logoutResponse.ok
-       })
-
-       console.log("📥 Resposta do delete:", {
-         status: deleteResponse.status,
-         statusText: deleteResponse.statusText,
-         ok: deleteResponse.ok
-       })
-
-             if (!logoutResponse.ok) {
-         console.warn("⚠️ Logout não foi bem-sucedido, mas continuando...")
-         console.warn("Status:", logoutResponse.status, "StatusText:", logoutResponse.statusText)
-         
-         // Tentar ler o corpo da resposta para debug
-         try {
-           const errorText = await logoutResponse.text()
-           console.warn("📄 Corpo da resposta de erro (logout):", errorText)
-         } catch (e) {
-           console.warn("❌ Não foi possível ler corpo da resposta (logout)")
-         }
-       } else {
-         console.log("✅ Logout realizado com sucesso")
-         
-         // Tentar ler o corpo da resposta para debug
-         try {
-           const successText = await logoutResponse.text()
-           console.log("📄 Corpo da resposta de sucesso (logout):", successText)
-         } catch (e) {
-           console.log("✅ Resposta de sucesso (logout) - sem corpo")
-         }
-       }
-
-       if (!deleteResponse.ok) {
-         console.warn("⚠️ Delete não foi bem-sucedido, mas continuando...")
-         console.warn("Status:", deleteResponse.status, "StatusText:", deleteResponse.statusText)
-         
-         // Tentar ler o corpo da resposta para debug
-         try {
-           const errorText = await deleteResponse.text()
-           console.warn("📄 Corpo da resposta de erro (delete):", errorText)
-         } catch (e) {
-           console.warn("❌ Não foi possível ler corpo da resposta (delete)")
-         }
-       } else {
-         console.log("✅ Delete realizado com sucesso")
-         
-         // Tentar ler o corpo da resposta para debug
-         try {
-           const successText = await deleteResponse.text()
-           console.log("📄 Corpo da resposta de sucesso (delete):", successText)
-         } catch (e) {
-           console.log("✅ Resposta de sucesso (delete) - sem corpo")
-         }
-       }
-
-             // 4. Limpar dados do Supabase
-      console.log("🧹 Limpando dados do Supabase...")
-      
-             if (searchId) {
-         const { error: updateError } = await supabase
-           .from("dados_cliente")
-           .update({ 
-             evo_instance: null,
-             base_leads: null,
-             bucket_name: null,
-             evo_created_at: null,
-             evo_updated_at: null,
-             numero_evo: null
-           })
-           .eq("id", searchId)
-
-        if (updateError) {
-          console.error("❌ Erro ao limpar dados do Supabase:", updateError)
-        } else {
-          console.log("✅ Dados do Supabase limpos com sucesso")
+      // Fazer logout da instância Evolution
+      console.log("📤 Fazendo logout da instância Evolution...")
+      const logoutResponse = await fetch(`${EVOLUTION_API_BASE}/instance/logout/${realInstanceName}`, {
+        method: "DELETE",
+        headers: {
+          "apikey": EVOLUTION_API_KEY
         }
+      })
+
+      // Deletar completamente a instância no Evolution
+      console.log("🗑️ Deletando instância completamente no Evolution...")
+      const deleteResponse = await fetch(`${EVOLUTION_API_BASE}/instance/delete/${realInstanceName}`, {
+        method: "DELETE",
+        headers: {
+          "apikey": EVOLUTION_API_KEY
+        }
+      })
+
+      console.log(" Resposta do logout:", {
+        status: logoutResponse.status,
+        ok: logoutResponse.ok
+      })
+
+      console.log(" Resposta do delete:", {
+        status: deleteResponse.status,
+        ok: deleteResponse.ok
+      })
+
+      // Limpar dados do Supabase
+      console.log("🧹 Limpando dados do Supabase...")
+      const { error: updateError } = await supabase
+        .from("dados_cliente")
+        .update({ 
+          evo_instance: null,
+          base_leads: null,
+          bucket_name: null,
+          evo_created_at: null,
+          evo_updated_at: null,
+          numero_evo: null
+        })
+        .eq("id", user.id)
+
+      if (updateError) {
+        console.error("❌ Erro ao limpar dados do Supabase:", updateError)
+      } else {
+        console.log("✅ Dados do Supabase limpos com sucesso")
       }
 
-             // 5. Resetar estado local
+      // Resetar estado local
       setHasCreatedInstance(false)
       setShowLimitModal(false)
       setInstanceName("")
       setQrCodeData(null)
       setConfirmationStatus(null)
 
-             // 6. Mostrar mensagem de sucesso
       toast({
         title: "✅ Instância deletada!",
         description: "Sua instância foi removida com sucesso. Agora você pode criar uma nova.",
@@ -757,6 +558,18 @@ const Evolution = () => {
     }
   }
 
+  // Renderizar apenas se o usuário estiver autenticado
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <div className="text-center">
+          <Loader2 className="h-16 w-16 animate-spin mx-auto mb-4 text-gray-600 dark:text-gray-400" />
+          <p className="text-gray-600 dark:text-gray-400">Carregando usuário...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
       <header className="bg-[#1F2937] text-white shadow-md transition-colors duration-300">
@@ -773,7 +586,7 @@ const Evolution = () => {
             <Bot className="h-8 w-8 text-cyan-400" />
             <h1 className="text-2xl font-bold">Afiliado AI</h1>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center justify-center gap-4">
             <Badge
               variant="outline"
               className="bg-white/10 text-white border-0 px-3 py-1"

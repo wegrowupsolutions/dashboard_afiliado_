@@ -26,7 +26,7 @@ export const useDynamicStorage = () => {
     if (!user?.id) return null
 
     try {
-      // Primeiro tentar buscar na tabela dados_cliente
+      // Buscar bucket_name APENAS na tabela dados_cliente
       const { data: dadosCliente, error: dadosError } = await supabase
         .from("dados_cliente")
         .select("bucket_name")
@@ -35,6 +35,7 @@ export const useDynamicStorage = () => {
 
       if (dadosError && dadosError.code !== "PGRST116") {
         console.error("Erro ao buscar bucket em dados_cliente:", dadosError)
+        return null
       }
 
       // Se encontrou bucket_name em dados_cliente, usar
@@ -43,29 +44,34 @@ export const useDynamicStorage = () => {
         return dadosCliente.bucket_name
       }
 
-      // Se não encontrou, tentar em cliente_config (fallback)
-      const { data: clienteConfig, error: configError } = await supabase
-        .from("cliente_config")
-        .select("bucket_name")
-        .eq("cliente_id", user.id)
-        .single()
-
-      if (configError && configError.code !== "PGRST116") {
-        console.error("Erro ao buscar bucket em cliente_config:", configError)
-      }
-
-      if (clienteConfig?.bucket_name) {
-        console.log(`📦 Bucket encontrado em cliente_config: ${clienteConfig.bucket_name}`)
-        return clienteConfig.bucket_name
-      }
-
-      // Se não tiver bucket_name configurado, gerar baseado no email do usuário
+      // Se não encontrou bucket_name, gerar baseado no email do usuário
       if (user?.email) {
         const emailBasedBucket = generateEmailBasedBucketName(user.email)
         console.log(`📦 Gerando bucket baseado no email: ${emailBasedBucket}`)
         
         // Tentar criar o bucket se não existir
         await createBucketIfNotExists(emailBasedBucket)
+        
+        // Salvar o bucket_name na tabela dados_cliente para uso futuro
+        try {
+          const { error: updateError } = await supabase
+            .from("dados_cliente")
+            .upsert({
+              id: user.id,
+              bucket_name: emailBasedBucket,
+              email: user.email || 'sem-email@exemplo.com'
+            }, {
+              onConflict: 'id'
+            })
+
+          if (updateError) {
+            console.warn("⚠️ Não foi possível salvar bucket_name na tabela:", updateError)
+          } else {
+            console.log("✅ bucket_name salvo na tabela dados_cliente")
+          }
+        } catch (saveError) {
+          console.warn("⚠️ Erro ao salvar bucket_name:", saveError)
+        }
         
         return emailBasedBucket
       }
@@ -136,20 +142,6 @@ export const useDynamicStorage = () => {
           // Criar políticas de segurança automaticamente
           await createBucketPolicies(bucketName)
           
-          // Salvar o nome do bucket na tabela dados_cliente
-          if (user?.id) {
-            const { error: updateError } = await supabase
-              .from("dados_cliente")
-              .update({ bucket_name: bucketName })
-              .eq("id", user.id)
-
-            if (updateError) {
-              console.warn("⚠️ Não foi possível salvar bucket_name na tabela:", updateError)
-            } else {
-              console.log("✅ bucket_name salvo na tabela dados_cliente")
-            }
-          }
-          
           return true
         } else {
           console.error("❌ Erro ao verificar bucket:", error)
@@ -169,28 +161,76 @@ export const useDynamicStorage = () => {
     }
   }
 
-  // Criar estrutura de pastas organizadas
-  const createFolderStructure = async (bucketName: string): Promise<void> => {
+  // Função para limpar estrutura incorreta e criar a correta
+  const cleanupAndCreateCorrectStructure = async (bucketName: string): Promise<void> => {
     try {
-      console.log(`📁 Criando estrutura de pastas para bucket ${bucketName}...`)
+      console.log(`🧹 Limpando estrutura incorreta e criando a correta...`)
       
-      // Estrutura de pastas padrão
-      const folders = [
+      // 1. Deletar a pasta 'imagens' incorreta (se existir)
+      try {
+        const { data: oldFiles } = await supabase.storage
+          .from(bucketName)
+          .list('imagens/imagens/')
+        
+        if (oldFiles && oldFiles.length > 0) {
+          console.log(`🗑️ Deletando arquivos da pasta incorreta 'imagens/imagens/'...`)
+          for (const file of oldFiles) {
+            if (file.name !== '.folder') {
+              await supabase.storage
+                .from(bucketName)
+                .remove([`imagens/imagens/${file.name}`])
+            }
+          }
+        }
+        
+        // Deletar a pasta 'imagens' incorreta
+        await supabase.storage
+          .from(bucketName)
+          .remove(['imagens/imagens/'])
+        
+        console.log(`✅ Pasta incorreta 'imagens/imagens/' removida`)
+      } catch (error) {
+        console.log(`ℹ️ Pasta 'imagens/imagens/' não existia ou já foi removida`)
+      }
+      
+      // 2. Criar a estrutura correta: documentos/tipo/
+      const correctFolders = [
         'documentos/',
+        'documentos/imagens/',
         'documentos/videos/',
         'documentos/audios/',
         'documentos/tabelas/',
-        'documentos/textos/',
-        'documentos/imagens/'
+        'documentos/textos/'
       ]
       
-      // As pastas são criadas automaticamente pelo Supabase quando o primeiro arquivo é enviado
-      // Não precisamos criar arquivos .folder desnecessários
-      console.log(`✅ Estrutura de pastas preparada para bucket ${bucketName}`)
-      console.log(`📁 As pastas serão criadas automaticamente quando arquivos forem enviados`)
+      for (const folder of correctFolders) {
+        try {
+          const { error } = await supabase.storage
+            .from(bucketName)
+            .upload(`${folder}.folder`, new Blob([''], { type: 'text/plain' }), {
+              cacheControl: "3600",
+              upsert: true,
+            })
+          
+          if (error) {
+            console.warn(`⚠️ Aviso ao criar pasta ${folder}:`, error)
+          } else {
+            console.log(`✅ Pasta ${folder} criada/verificada`)
+          }
+        } catch (folderError) {
+          console.warn(`⚠️ Erro ao criar pasta ${folder}:`, folderError)
+        }
+      }
+      
+      console.log(`✅ Estrutura correta criada: documentos/tipo/`)
     } catch (error) {
-      console.error("❌ Erro ao criar estrutura de pastas:", error)
+      console.error("❌ Erro ao limpar e criar estrutura:", error)
     }
+  }
+
+  // Criar estrutura de pastas organizadas (agora usa a função de limpeza)
+  const createFolderStructure = async (bucketName: string): Promise<void> => {
+    await cleanupAndCreateCorrectStructure(bucketName)
   }
 
   // Criar políticas de segurança para o bucket
@@ -209,7 +249,26 @@ export const useDynamicStorage = () => {
     }
   }
 
-  // Upload de arquivo para o bucket do usuário
+  // Função para sanitizar nomes de arquivos (remover caracteres especiais)
+  const sanitizeFileName = (fileName: string): string => {
+    // Remover acentos e caracteres especiais
+    const normalized = fileName.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    
+    // Remover caracteres especiais e espaços, substituir por hífen
+    const sanitized = normalized
+      .replace(/[^a-zA-Z0-9.-]/g, '-')
+      .replace(/-+/g, '-') // Substituir múltiplos hífens por um só
+      .replace(/^-|-$/g, '') // Remover hífens no início e fim
+    
+    // Garantir que o nome não fique vazio
+    if (!sanitized) {
+      return 'arquivo'
+    }
+    
+    return sanitized
+  }
+
+  // Upload de arquivo para o bucket do usuário com retry automático
   const uploadFile = async (
     file: File,
     category: string = "general"
@@ -225,90 +284,132 @@ export const useDynamicStorage = () => {
 
     setIsUploading(true)
 
+    // Função de retry com delay
+    const uploadWithRetry = async (retryCount: number = 0): Promise<boolean> => {
+      try {
+        console.log("🔍 Buscando bucket do usuário...")
+        const bucketName = await getUserBucketName()
+
+        if (!bucketName) {
+          toast({
+            title: "Erro de configuração",
+            description: "Bucket do usuário não encontrado.",
+            variant: "destructive",
+          })
+          return false
+        }
+
+        console.log(`📦 Usando bucket: ${bucketName}`)
+
+        // Garantir que o bucket existe antes do upload
+        const bucketExists = await createBucketIfNotExists(bucketName)
+        if (!bucketExists) {
+          toast({
+            title: "Erro de configuração",
+            description: "Não foi possível criar o bucket de armazenamento.",
+            variant: "destructive",
+          })
+          return false
+        }
+
+        // Determinar pasta baseada no tipo de arquivo
+        const targetFolder = getTargetFolder(file.type, file.name)
+        
+        // Garantir que a pasta específica existe antes do upload
+        await createFolderStructure(bucketName)
+        
+        // Sanitizar o nome do arquivo para evitar problemas
+        const originalName = file.name
+        const fileExtension = originalName.split('.').pop() || ''
+        const fileNameWithoutExt = originalName.substring(0, originalName.lastIndexOf('.'))
+        const sanitizedFileName = sanitizeFileName(fileNameWithoutExt)
+        const finalFileName = `${sanitizedFileName}.${fileExtension}`
+        
+        // Construir o caminho correto: targetFolder já inclui 'documentos/tipo/'
+        const filePath = `${targetFolder}${finalFileName}`
+
+        console.log(`📤 Fazendo upload: ${originalName} → ${filePath}`)
+        console.log(`📁 Pasta de destino: ${targetFolder}`)
+        console.log(`🔤 Nome sanitizado: ${finalFileName}`)
+
+        // Upload para o Supabase Storage na pasta correta
+        const { data, error } = await supabase.storage
+          .from(bucketName)
+          .upload(filePath, file, {
+            cacheControl: "3600",
+            upsert: false,
+          })
+
+        if (error) {
+          console.error("Erro no upload:", error)
+          console.error("Detalhes do erro:", JSON.stringify(error, null, 2))
+          
+          // Se for erro de SSL, tentar novamente
+          if (error.message.includes('SSL') || error.message.includes('fetch') || error.message.includes('network')) {
+            if (retryCount < 3) {
+              console.log(`🔄 Tentativa ${retryCount + 1} falhou, tentando novamente em 2 segundos...`)
+              await new Promise(resolve => setTimeout(resolve, 2000))
+              return uploadWithRetry(retryCount + 1)
+            }
+          }
+          
+          toast({
+            title: "Erro no upload",
+            description: error.message,
+            variant: "destructive",
+          })
+          return false
+        }
+
+        console.log("✅ Upload realizado com sucesso:", data)
+
+        // Obter URL pública do arquivo
+        const { data: urlData } = supabase.storage
+          .from(bucketName)
+          .getPublicUrl(filePath)
+
+        // Adicionar à lista de arquivos
+        const newFile: UploadedFile = {
+          id: data.path,
+          name: originalName, // Manter o nome original para exibição
+          size: file.size,
+          type: file.type,
+          url: urlData.publicUrl,
+          bucket: bucketName,
+          created_at: new Date().toISOString(),
+        }
+
+        setFiles((prev) => [newFile, ...prev])
+
+        toast({
+          title: "Upload realizado!",
+          description: `${originalName} foi enviado para ${targetFolder}`,
+        })
+
+        return true
+      } catch (error) {
+        console.error("Erro inesperado no upload:", error)
+        
+        // Se for erro de SSL, tentar novamente
+        if (error instanceof TypeError && error.message.includes('fetch')) {
+          if (retryCount < 3) {
+            console.log(`🔄 Tentativa ${retryCount + 1} falhou, tentando novamente em 2 segundos...`)
+            await new Promise(resolve => setTimeout(resolve, 2000))
+            return uploadWithRetry(retryCount + 1)
+          }
+        }
+        
+        toast({
+          title: "Erro inesperado",
+          description: "Não foi possível fazer o upload do arquivo.",
+          variant: "destructive",
+        })
+        return false
+      }
+    }
+
     try {
-      console.log("🔍 Buscando bucket do usuário...")
-      const bucketName = await getUserBucketName()
-
-      if (!bucketName) {
-        toast({
-          title: "Erro de configuração",
-          description: "Bucket do usuário não encontrado.",
-          variant: "destructive",
-        })
-        return false
-      }
-
-      console.log(`📦 Usando bucket: ${bucketName}`)
-
-      // Garantir que o bucket existe antes do upload
-      const bucketExists = await createBucketIfNotExists(bucketName)
-      if (!bucketExists) {
-        toast({
-          title: "Erro de configuração",
-          description: "Não foi possível criar o bucket de armazenamento.",
-          variant: "destructive",
-        })
-        return false
-      }
-
-      // Determinar pasta baseada no tipo de arquivo
-      const targetFolder = getTargetFolder(file.type, file.name)
-      const filePath = `${targetFolder}${file.name}`
-
-      console.log(`📤 Fazendo upload: ${file.name} → ${targetFolder}`)
-
-      // Upload para o Supabase Storage na pasta correta
-      const { data, error } = await supabase.storage
-        .from(bucketName)
-        .upload(filePath, file, {
-          cacheControl: "3600",
-          upsert: false,
-        })
-
-      if (error) {
-        console.error("Erro no upload:", error)
-        toast({
-          title: "Erro no upload",
-          description: error.message,
-          variant: "destructive",
-        })
-        return false
-      }
-
-      console.log("✅ Upload realizado com sucesso:", data)
-
-      // Obter URL pública do arquivo
-      const { data: urlData } = supabase.storage
-        .from(bucketName)
-        .getPublicUrl(filePath)
-
-      // Adicionar à lista de arquivos
-      const newFile: UploadedFile = {
-        id: data.path,
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        url: urlData.publicUrl,
-        bucket: bucketName,
-        created_at: new Date().toISOString(),
-      }
-
-      setFiles((prev) => [newFile, ...prev])
-
-      toast({
-        title: "Upload realizado!",
-        description: `${file.name} foi enviado para ${targetFolder}`,
-      })
-
-      return true
-    } catch (error) {
-      console.error("Erro inesperado no upload:", error)
-      toast({
-        title: "Erro inesperado",
-        description: "Não foi possível fazer o upload do arquivo.",
-        variant: "destructive",
-      })
-      return false
+      return await uploadWithRetry()
     } finally {
       setIsUploading(false)
     }
@@ -319,7 +420,7 @@ export const useDynamicStorage = () => {
     // Por extensão do arquivo (mais confiável)
     const extension = fileName.toLowerCase().split('.').pop()
     
-    // Por tipo MIME
+    // Por tipo MIME - CORRIGIDO para usar a estrutura correta: documentos/tipo/
     if (mimeType.startsWith('video/') || ['mp4', 'avi', 'mov', 'mkv', 'wmv', 'flv', 'webm'].includes(extension || '')) {
       return 'documentos/videos/'
     }
