@@ -2,16 +2,16 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 import path from 'path'
 
-// https://vitejs.dev/config/
 export default defineConfig({
+  base: base: '/afiliado/',
+
   plugins: [react()],
-  // base: '/dashboard_afiliado_/', // ← Comentar ou remover esta linha
   build: {
     outDir: 'dist',
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src')
-    }
-  }
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
 })
